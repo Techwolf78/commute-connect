@@ -99,23 +99,26 @@ const DashboardPage = () => {
           <CardContent className="p-3 md:p-4">
             <div className="flex gap-2 md:gap-3">
               <Button
-                className="flex-1 h-auto p-2 md:p-4 bg-white border-2 border-primary/20 hover:border-primary/40 hover:bg-primary/5 transition-all duration-200"
+                className="flex-1 h-auto p-3 md:p-4 bg-white border-2 border-primary/20 hover:border-primary/40 hover:bg-primary/5 transition-all duration-200"
                 onClick={() => navigate('/find-rides')}
               >
-                <div className="flex items-center justify-between w-full">
-                  <div className="flex items-center gap-1 md:gap-3">
-                    <div className="flex items-center justify-center w-6 h-6 md:w-10 md:h-10 bg-primary/10 rounded-full">
-                      <Search className="h-3 w-3 md:h-5 md:w-5 text-primary" />
+                <div className="flex items-center justify-center md:justify-between w-full">
+                  <div className="flex items-center gap-2 md:gap-3">
+                    <div className="flex items-center justify-center w-8 h-8 md:w-10 md:h-10 bg-primary/10 rounded-full">
+                      <Search className="h-4 w-4 md:h-5 md:w-5 text-primary" />
                     </div>
-                    <div className="text-left">
-                      <div className="text-[10px] md:text-sm font-semibold text-gray-900">Find a ride</div>
-                      <div className="text-[8px] md:text-xs text-gray-600 hidden md:block">To Office / Home...</div>
+                    <div className="text-left hidden md:block">
+                      <div className="text-sm font-semibold text-gray-900">Find a ride</div>
+                      <div className="text-xs text-gray-600">To Office / Home...</div>
+                    </div>
+                    <div className="text-center md:hidden">
+                      <div className="text-sm font-semibold text-gray-900">Find Ride</div>
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-1 hidden md:flex">
-                    <div className="flex items-center gap-1 bg-primary/10 px-1 md:px-2 py-0.5 md:py-1 rounded-full">
-                      <Calendar className="h-2 w-2 md:h-3 md:w-3 text-primary" />
-                      <span className="text-[8px] md:text-xs font-medium text-primary">Today</span>
+                    <div className="flex items-center gap-1 bg-primary/10 px-2 py-1 rounded-full">
+                      <Calendar className="h-3 w-3 text-primary" />
+                      <span className="text-xs font-medium text-primary">Today</span>
                     </div>
                   </div>
                 </div>
@@ -123,20 +126,24 @@ const DashboardPage = () => {
               {isDriver ? (
                 <Button 
                   variant="outline"
-                  className="flex-1 h-auto py-2 md:py-4 flex-col gap-0.5 md:gap-2"
+                  className="flex-1 h-auto p-3 md:p-4"
                   onClick={() => navigate('/create-ride')}
                 >
-                  <Plus className="h-4 w-4 md:h-6 md:w-6" />
-                  <span className="text-[10px] md:text-sm">Offer a Ride</span>
+                  <div className="flex flex-col items-center gap-1 md:gap-2">
+                    <Plus className="h-5 w-5 md:h-6 md:w-6" />
+                    <span className="text-sm md:text-base">Offer Ride</span>
+                  </div>
                 </Button>
               ) : (
                 <Button 
                   variant="outline"
-                  className="flex-1 h-auto py-2 md:py-4 flex-col gap-0.5 md:gap-2"
+                  className="flex-1 h-auto p-3 md:p-4"
                   onClick={() => navigate('/become-driver')}
                 >
-                  <Car className="h-4 w-4 md:h-6 md:w-6" />
-                  <span className="text-[10px] md:text-sm">Become Driver</span>
+                  <div className="flex flex-col items-center gap-1 md:gap-2">
+                    <Car className="h-5 w-5 md:h-6 md:w-6" />
+                    <span className="text-sm md:text-base">Become Driver</span>
+                  </div>
                 </Button>
               )}
             </div>
