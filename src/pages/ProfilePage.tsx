@@ -45,31 +45,31 @@ const ProfilePage = () => {
   return (
     <div className="min-h-screen bg-background pb-8">
       {/* Header */}
-      <div className="bg-primary text-primary-foreground px-4 pt-8 pb-16 rounded-b-3xl">
+      <div className="bg-primary text-primary-foreground px-4 pt-6 md:pt-8 pb-12 md:pb-16 rounded-b-3xl">
         <div className="max-w-lg mx-auto">
-          <h1 className="text-2xl font-bold">Profile</h1>
+          <h1 className="text-xl md:text-2xl font-bold">Profile</h1>
         </div>
       </div>
 
       {/* Profile Card */}
-      <div className="px-4 -mt-10 max-w-lg mx-auto space-y-4">
+      <div className="px-4 -mt-6 md:-mt-10 max-w-lg mx-auto space-y-3 md:space-y-4">
         <Card className="shadow-lg">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center">
-                <User className="h-10 w-10 text-muted-foreground" />
+          <CardContent className="p-4 md:p-6">
+            <div className="flex items-center gap-3 md:gap-4">
+              <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-muted flex items-center justify-center">
+                <User className="h-8 w-8 md:h-10 md:w-10 text-muted-foreground" />
               </div>
               <div className="flex-1">
-                <h2 className="text-xl font-bold">{user?.name}</h2>
-                <p className="text-muted-foreground">{user?.phone}</p>
+                <h2 className="text-lg md:text-xl font-bold">{user?.name}</h2>
+                <p className="text-muted-foreground text-sm md:text-base">{user?.phone}</p>
                 {isDriver && (
                   <div className="flex items-center gap-2 mt-1">
-                    <span className="inline-flex items-center gap-1 text-sm px-2 py-0.5 bg-primary/10 text-primary rounded-full">
+                    <span className="inline-flex items-center gap-1 text-xs md:text-sm px-2 py-0.5 bg-primary/10 text-primary rounded-full">
                       <Car className="h-3 w-3" />
                       Driver
                     </span>
                     {driverInfo && (
-                      <span className="inline-flex items-center gap-1 text-sm">
+                      <span className="inline-flex items-center gap-1 text-xs md:text-sm">
                         <Star className="h-3 w-3 fill-warning text-warning" />
                         {driverInfo.rating.toFixed(1)}
                       </span>
@@ -82,7 +82,7 @@ const ProfilePage = () => {
                 size="icon"
                 onClick={() => navigate('/edit-profile')}
               >
-                <Edit2 className="h-5 w-5" />
+                <Edit2 className="h-4 w-4 md:h-5 md:w-5" />
               </Button>
             </div>
           </CardContent>

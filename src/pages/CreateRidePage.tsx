@@ -150,23 +150,23 @@ const CreateRidePage = () => {
   return (
     <div className="min-h-screen bg-background pb-8">
       {/* Header */}
-      <div className="bg-primary text-primary-foreground px-4 pt-4 pb-6">
+      <div className="bg-primary text-primary-foreground px-4 pt-3 md:pt-4 pb-4 md:pb-6">
         <div className="max-w-lg mx-auto">
           <Button 
             variant="ghost" 
             size="icon"
-            className="text-primary-foreground hover:bg-primary-foreground/10 -ml-2 mb-2"
+            className="text-primary-foreground hover:bg-primary-foreground/10 -ml-2 mb-1 md:mb-2"
             onClick={() => navigate(-1)}
           >
-            <ArrowLeft className="h-5 w-5" />
+            <ArrowLeft className="h-4 w-4 md:h-5 md:w-5" />
           </Button>
-          <h1 className="text-2xl font-bold">Offer a Ride</h1>
-          <p className="text-primary-foreground/80 mt-1">Share your commute and save costs</p>
+          <h1 className="text-xl md:text-2xl font-bold">Offer a Ride</h1>
+          <p className="text-primary-foreground/80 mt-1 text-sm md:text-base">Share your commute and save costs</p>
         </div>
       </div>
 
-      <div className="px-4 mt-4 max-w-lg mx-auto">
-        <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="px-4 mt-3 md:mt-4 max-w-lg mx-auto">
+        <form onSubmit={handleSubmit} className="space-y-3 md:space-y-4">
           {/* Direction */}
           <Card>
             <CardHeader className="pb-3">
@@ -176,15 +176,15 @@ const CreateRidePage = () => {
               <RadioGroup 
                 value={direction} 
                 onValueChange={(v) => handleDirectionChange(v as RideDirection)}
-                className="flex gap-4"
+                className="flex gap-3 md:gap-4"
               >
                 <div className="flex-1">
                   <RadioGroupItem value="to_office" id="to_office" className="peer sr-only" />
                   <Label 
                     htmlFor="to_office" 
-                    className="flex flex-col items-center p-4 border-2 rounded-lg cursor-pointer peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5"
+                    className="flex flex-col items-center p-3 md:p-4 border-2 rounded-lg cursor-pointer peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5"
                   >
-                    <span className="font-medium">To Office</span>
+                    <span className="font-medium text-sm md:text-base">To Office</span>
                     <span className="text-xs text-muted-foreground">Morning commute</span>
                   </Label>
                 </div>
@@ -192,9 +192,9 @@ const CreateRidePage = () => {
                   <RadioGroupItem value="from_office" id="from_office" className="peer sr-only" />
                   <Label 
                     htmlFor="from_office" 
-                    className="flex flex-col items-center p-4 border-2 rounded-lg cursor-pointer peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5"
+                    className="flex flex-col items-center p-3 md:p-4 border-2 rounded-lg cursor-pointer peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5"
                   >
-                    <span className="font-medium">From Office</span>
+                    <span className="font-medium text-sm md:text-base">From Office</span>
                     <span className="text-xs text-muted-foreground">Evening commute</span>
                   </Label>
                 </div>

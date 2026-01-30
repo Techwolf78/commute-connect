@@ -72,24 +72,24 @@ const LoginPage = () => {
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background">
       <div className="w-full max-w-md animate-fade-in">
         {/* Logo/Brand */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary mb-4">
-            <Car className="h-6 w-6 text-primary-foreground" />
+        <div className="text-center mb-6 md:mb-8">
+          <div className="inline-flex items-center justify-center w-12 h-12 md:w-16 md:h-16 rounded-full bg-primary mb-3 md:mb-4">
+            <Car className="h-5 w-5 md:h-6 md:w-6 text-primary-foreground" />
           </div>
-          <h1 className="text-3xl font-bold text-foreground">OFFICERIDES</h1>
-          <p className="text-muted-foreground mt-2">Share your daily commute, save costs</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground">OFFICERIDES</h1>
+          <p className="text-muted-foreground mt-1 md:mt-2 text-sm md:text-base">Share your daily commute, save costs</p>
         </div>
 
         {/* Login Card */}
         <Card className="border-border shadow-lg">
           <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl text-center">Welcome</CardTitle>
-            <CardDescription className="text-center">
+            <CardTitle className="text-xl md:text-2xl text-center">Welcome</CardTitle>
+            <CardDescription className="text-center text-sm md:text-base">
               Enter your phone number to get started
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-3 md:space-y-4">
               <div className="space-y-2">
                 <label htmlFor="phone" className="text-sm font-medium text-foreground">
                   Phone Number

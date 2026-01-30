@@ -58,8 +58,8 @@ const FindRidesPage = () => {
         className="cursor-pointer hover:shadow-md transition-shadow"
         onClick={() => navigate(`/ride/${ride.id}`)}
       >
-        <CardContent className="p-4">
-          <div className="space-y-3">
+        <CardContent className="p-3 md:p-4">
+          <div className="space-y-2 md:space-y-3">
             {/* Time & Direction Badge */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm">
@@ -81,24 +81,24 @@ const FindRidesPage = () => {
             <div className="flex items-center gap-2">
               <div className="flex flex-col items-center">
                 <div className="w-2 h-2 rounded-full bg-primary" />
-                <div className="w-0.5 h-6 bg-border" />
+                <div className="w-0.5 h-4 md:h-6 bg-border" />
                 <div className="w-2 h-2 rounded-full bg-muted-foreground" />
               </div>
-              <div className="flex-1 space-y-2">
-                <p className="font-medium">{ride.startLocation.name}</p>
-                <p className="text-muted-foreground">{ride.endLocation.name}</p>
+              <div className="flex-1 space-y-1 md:space-y-2">
+                <p className="font-medium text-sm md:text-base">{ride.startLocation.name}</p>
+                <p className="text-muted-foreground text-sm">{ride.endLocation.name}</p>
               </div>
             </div>
             
             {/* Driver & Vehicle Info */}
-            <div className="flex items-center justify-between pt-2 border-t border-border">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-                  <User className="h-5 w-5 text-muted-foreground" />
+            <div className="flex items-center justify-between pt-1 md:pt-2 border-t border-border">
+              <div className="flex items-center gap-2 md:gap-3">
+                <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-muted flex items-center justify-center">
+                  <User className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
                 </div>
                 <div>
-                  <p className="font-medium">{driver?.name || 'Driver'}</p>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <p className="font-medium text-sm md:text-base">{driver?.name || 'Driver'}</p>
+                  <div className="flex items-center gap-1 md:gap-2 text-xs md:text-sm text-muted-foreground">
                     {vehicle && (
                       <span>{vehicle.make} {vehicle.model}</span>
                     )}
@@ -112,8 +112,8 @@ const FindRidesPage = () => {
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-xl font-bold text-primary">₹{ride.costPerSeat}</p>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-lg md:text-xl font-bold text-primary">₹{ride.costPerSeat}</p>
+                <p className="text-xs md:text-sm text-muted-foreground">
                   {ride.availableSeats} seat{ride.availableSeats > 1 ? 's' : ''} left
                 </p>
               </div>
@@ -127,17 +127,17 @@ const FindRidesPage = () => {
   return (
     <div className="min-h-screen bg-background pb-24">
       {/* Header */}
-      <div className="bg-primary text-primary-foreground px-4 pt-8 pb-6">
+      <div className="bg-primary text-primary-foreground px-4 pt-6 md:pt-8 pb-4 md:pb-6">
         <div className="max-w-lg mx-auto">
-          <h1 className="text-2xl font-bold">Find a Ride</h1>
-          <p className="text-primary-foreground/80 mt-1">Discover available commute options</p>
+          <h1 className="text-xl md:text-2xl font-bold">Find a Ride</h1>
+          <p className="text-primary-foreground/80 mt-1 text-sm md:text-base">Discover available commute options</p>
         </div>
       </div>
 
       {/* Search & Filters */}
-      <div className="px-4 -mt-3 max-w-lg mx-auto">
+      <div className="px-4 -mt-2 md:-mt-3 max-w-lg mx-auto">
         <Card className="shadow-lg">
-          <CardContent className="p-4 space-y-3">
+          <CardContent className="p-3 md:p-4 space-y-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -171,9 +171,9 @@ const FindRidesPage = () => {
       </div>
 
       {/* Results */}
-      <div className="px-4 mt-6 max-w-lg mx-auto">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-semibold">
+      <div className="px-4 mt-4 md:mt-6 max-w-lg mx-auto">
+        <div className="flex items-center justify-between mb-3 md:mb-4">
+          <h2 className="text-base md:text-lg font-semibold">
             {availableRides.length} ride{availableRides.length !== 1 ? 's' : ''} available
           </h2>
         </div>
