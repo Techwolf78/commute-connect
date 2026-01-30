@@ -55,15 +55,18 @@ const DashboardPage = () => {
     return 'Welcome back';
   };
 
+  const getFirstName = () => {
+    const fullName = user?.name || 'User';
+    return fullName.split(' ')[0];
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="bg-primary text-primary-foreground px-4 pt-8 pb-12 rounded-b-3xl">
         <div className="max-w-lg mx-auto">
-          <p className="text-primary-foreground/80 flex items-center gap-2">
-            {getGreeting()} <Hand className="h-4 w-4 animate-pulse" />
-          </p>
-          <h1 className="text-2xl font-bold mt-1">{user?.name || 'User'}</h1>
+          <h1 className="text-2xl font-bold">Hello, {getFirstName()} 👋</h1>
+          <p className="text-primary-foreground/80 mt-2">Where do you want to go today?</p>
           
           {/* Quick Stats */}
           <div className="flex gap-4 mt-6">
@@ -95,12 +98,27 @@ const DashboardPage = () => {
         <Card className="shadow-lg">
           <CardContent className="p-4">
             <div className="flex gap-3">
-              <Button 
-                className="flex-1 h-auto py-4 flex-col gap-2"
+              <Button
+                className="flex-1 h-auto p-4 bg-white border-2 border-primary/20 hover:border-primary/40 hover:bg-primary/5 transition-all duration-200"
                 onClick={() => navigate('/find-rides')}
               >
-                <Search className="h-6 w-6" />
-                <span className="text-sm">Find a Ride</span>
+                <div className="flex items-center justify-between w-full">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-center w-10 h-10 bg-primary/10 rounded-full">
+                      <Search className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="text-left">
+                      <div className="text-sm font-semibold text-gray-900">Find a ride</div>
+                      <div className="text-xs text-gray-600">To Office / Home...</div>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <div className="flex items-center gap-1 bg-primary/10 px-2 py-1 rounded-full">
+                      <Calendar className="h-3 w-3 text-primary" />
+                      <span className="text-xs font-medium text-primary">Today</span>
+                    </div>
+                  </div>
+                </div>
               </Button>
               {isDriver ? (
                 <Button 
