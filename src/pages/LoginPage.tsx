@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Phone, ArrowRight } from 'lucide-react';
+import { Phone, ArrowRight, Car } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -74,9 +74,9 @@ const LoginPage = () => {
         {/* Logo/Brand */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary mb-4">
-            <span className="text-2xl font-bold text-primary-foreground">CP</span>
+            <Car className="h-6 w-6 text-primary-foreground" />
           </div>
-          <h1 className="text-3xl font-bold text-foreground">CommutePal</h1>
+          <h1 className="text-3xl font-bold text-foreground">OFFICERIDES</h1>
           <p className="text-muted-foreground mt-2">Share your daily commute, save costs</p>
         </div>
 

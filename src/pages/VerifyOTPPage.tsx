@@ -26,6 +26,15 @@ const VerifyOTPPage = () => {
     }
   }, [phone, navigate]);
 
+  // Navigate after successful verification
+  useEffect(() => {
+    if (user && user.isProfileComplete) {
+      navigate('/dashboard', { replace: true });
+    } else if (user && !user.isProfileComplete) {
+      navigate('/complete-profile', { replace: true });
+    }
+  }, [user, navigate]);
+
   useEffect(() => {
     if (resendTimer > 0) {
       const timer = setTimeout(() => setResendTimer(resendTimer - 1), 1000);
@@ -53,8 +62,7 @@ const VerifyOTPPage = () => {
           title: 'Verified Successfully',
           description: 'Welcome to CommutePal!',
         });
-        // Navigate based on profile completion
-        // The navigation will be handled after user state updates
+        // Navigation will be handled by useEffect when user state updates
       } else {
         toast({
           variant: 'destructive',

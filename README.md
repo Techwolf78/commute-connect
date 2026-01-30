@@ -1,4 +1,6 @@
-# Welcome to your Lovable project
+# Commute Connect
+
+A ride-sharing platform built by OFFICERIDES to connect commuters and make daily travel smarter, cheaper, and more social.
 
 ## Project info
 

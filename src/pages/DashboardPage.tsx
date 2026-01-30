@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Car, Users, MapPin, Clock, ArrowRight, 
-  ChevronRight, Star, TrendingUp 
+  ChevronRight, Star, TrendingUp, Hand, Calendar, Search, Plus 
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -52,10 +52,7 @@ const DashboardPage = () => {
     : [];
 
   const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good Morning';
-    if (hour < 17) return 'Good Afternoon';
-    return 'Good Evening';
+    return 'Welcome back';
   };
 
   return (
@@ -63,7 +60,9 @@ const DashboardPage = () => {
       {/* Header */}
       <div className="bg-primary text-primary-foreground px-4 pt-8 pb-12 rounded-b-3xl">
         <div className="max-w-lg mx-auto">
-          <p className="text-primary-foreground/80">{getGreeting()}</p>
+          <p className="text-primary-foreground/80 flex items-center gap-2">
+            {getGreeting()} <Hand className="h-4 w-4 animate-pulse" />
+          </p>
           <h1 className="text-2xl font-bold mt-1">{user?.name || 'User'}</h1>
           
           {/* Quick Stats */}
@@ -314,8 +313,5 @@ const DashboardPage = () => {
     </div>
   );
 };
-
-// Import missing icons
-import { Calendar, Search, Plus } from 'lucide-react';
 
 export default DashboardPage;

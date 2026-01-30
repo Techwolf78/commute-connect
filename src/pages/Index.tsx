@@ -1,14 +1,27 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useNavigate } from "react-router-dom";
+import { useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import LandingPage from "./LandingPage";
 
 const Index = () => {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
-    </div>
-  );
+  const navigate = useNavigate();
+  const { isAuthenticated, user } = useAuth();
+
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      if (user.isProfileComplete) {
+        navigate('/dashboard', { replace: true });
+      } else {
+        navigate('/complete-profile', { replace: true });
+      }
+    }
+  }, [isAuthenticated, user, navigate]);
+
+  if (isAuthenticated) {
+    return null; // Will redirect via useEffect
+  }
+
+  return <LandingPage />;
 };
 
 export default Index;

@@ -13,6 +13,7 @@ import VerifyOTPPage from "./pages/VerifyOTPPage";
 import CompleteProfilePage from "./pages/CompleteProfilePage";
 
 // Main Pages
+import Index from "./pages/Index";
 import DashboardPage from "./pages/DashboardPage";
 import FindRidesPage from "./pages/FindRidesPage";
 import RideDetailsPage from "./pages/RideDetailsPage";
@@ -63,7 +64,7 @@ const App = () => (
             </Route>
             
             {/* Redirects */}
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/" element={<Index />} />
             
             {/* 404 */}
             <Route path="*" element={<NotFound />} />
