@@ -167,23 +167,23 @@ const DashboardPage = () => {
                 return (
                   <Card key={booking.id} className="cursor-pointer hover:shadow-md transition-shadow">
                     <CardContent className="p-3 md:p-4">
-                      <div className="flex flex-col md:flex-row md:items-start md:justify-between space-y-2 md:space-y-0">
-                        <div className="space-y-1 md:space-y-2 flex-1">
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1 md:space-y-2 flex-1 min-w-0">
                           <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground">
-                            <Clock className="h-3 w-3 md:h-4 md:w-4" />
+                            <Clock className="h-3 w-3 md:h-4 md:w-4 flex-shrink-0" />
                             {format(new Date(ride.departureTime), 'EEE, MMM d • h:mm a')}
                           </div>
                           <div className="flex items-center gap-2">
-                            <MapPin className="h-3 w-3 md:h-4 md:w-4 text-primary" />
-                            <span className="font-medium text-sm md:text-base">{ride.startLocation.name}</span>
-                            <ArrowRight className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
-                            <span className="font-medium text-sm md:text-base">{ride.endLocation.name}</span>
+                            <MapPin className="h-3 w-3 md:h-4 md:w-4 text-primary flex-shrink-0" />
+                            <span className="font-medium text-sm md:text-base truncate">{ride.startLocation.name}</span>
+                            <ArrowRight className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground flex-shrink-0" />
+                            <span className="font-medium text-sm md:text-base truncate">{ride.endLocation.name}</span>
                           </div>
                           <p className="text-xs md:text-sm text-muted-foreground">
                             with {driver?.name || 'Driver'}
                           </p>
                         </div>
-                        <div className="flex flex-col items-end md:text-right">
+                        <div className="flex flex-col items-end text-right ml-2">
                           <p className="text-lg font-bold text-primary">₹{booking.totalCost}</p>
                           <span className="text-xs px-2 py-1 bg-success/10 text-success rounded-full mt-1">
                             Confirmed
@@ -227,32 +227,34 @@ const DashboardPage = () => {
                     onClick={() => navigate(`/ride/${ride.id}`)}
                   >
                     <CardContent className="p-3 md:p-4">
-                      <div className="flex flex-col md:flex-row md:items-start md:justify-between space-y-2 md:space-y-0">
-                        <div className="space-y-1 md:space-y-2 flex-1">
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1 md:space-y-2 flex-1 min-w-0">
                           <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground">
-                            <Clock className="h-3 w-3 md:h-4 md:w-4" />
-                            {format(new Date(ride.departureTime), 'EEE, MMM d • h:mm a')}
+                            <Clock className="h-3 w-3 md:h-4 md:w-4 flex-shrink-0" />
+                            <span className="truncate">
+                              {format(new Date(ride.departureTime), 'EEE, MMM d • h:mm a')}
+                            </span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <MapPin className="h-3 w-3 md:h-4 md:w-4 text-primary" />
-                            <span className="font-medium text-sm md:text-base">{ride.startLocation.name}</span>
-                            <ArrowRight className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
-                            <span className="font-medium text-sm md:text-base">{ride.endLocation.name}</span>
+                            <MapPin className="h-3 w-3 md:h-4 md:w-4 text-primary flex-shrink-0" />
+                            <span className="font-medium text-sm md:text-base truncate">{ride.startLocation.name}</span>
+                            <ArrowRight className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground flex-shrink-0" />
+                            <span className="font-medium text-sm md:text-base truncate">{ride.endLocation.name}</span>
                           </div>
                           <div className="flex items-center gap-2 md:gap-3 text-xs md:text-sm text-muted-foreground">
                             <span className="flex items-center gap-1">
-                              <Users className="h-3 w-3 md:h-4 md:w-4" />
+                              <Users className="h-3 w-3 md:h-4 md:w-4 flex-shrink-0" />
                               {ride.availableSeats} seats
                             </span>
                             {driverInfo && (
                               <span className="flex items-center gap-1">
-                                <Star className="h-3 w-3 md:h-4 md:w-4 fill-warning text-warning" />
+                                <Star className="h-3 w-3 md:h-4 md:w-4 fill-warning text-warning flex-shrink-0" />
                                 {driverInfo.rating.toFixed(1)}
                               </span>
                             )}
                           </div>
                         </div>
-                        <div className="flex flex-col items-end md:text-right">
+                        <div className="flex flex-col items-end text-right ml-2">
                           <p className="text-lg md:text-xl font-bold text-primary">₹{ride.costPerSeat}</p>
                           <p className="text-xs text-muted-foreground">per seat</p>
                         </div>
@@ -302,20 +304,20 @@ const DashboardPage = () => {
                   onClick={() => navigate(`/ride/${ride.id}`)}
                 >
                   <CardContent className="p-3 md:p-4">
-                    <div className="flex flex-col md:flex-row md:items-start md:justify-between space-y-2 md:space-y-0">
-                      <div className="space-y-1 md:space-y-2 flex-1">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1 md:space-y-2 flex-1 min-w-0">
                         <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground">
-                          <Clock className="h-3 w-3 md:h-4 md:w-4" />
+                          <Clock className="h-3 w-3 md:h-4 md:w-4 flex-shrink-0" />
                           {format(new Date(ride.departureTime), 'EEE, MMM d • h:mm a')}
                         </div>
                         <div className="flex items-center gap-2">
-                          <MapPin className="h-3 w-3 md:h-4 md:w-4 text-primary" />
-                          <span className="font-medium text-sm md:text-base">{ride.startLocation.name}</span>
-                          <ArrowRight className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
-                          <span className="font-medium text-sm md:text-base">{ride.endLocation.name}</span>
+                          <MapPin className="h-3 w-3 md:h-4 md:w-4 text-primary flex-shrink-0" />
+                          <span className="font-medium text-sm md:text-base truncate">{ride.startLocation.name}</span>
+                          <ArrowRight className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground flex-shrink-0" />
+                          <span className="font-medium text-sm md:text-base truncate">{ride.endLocation.name}</span>
                         </div>
                       </div>
-                      <div className="flex flex-col items-end md:text-right">
+                      <div className="flex flex-col items-end text-right ml-2">
                         <span className="text-xs md:text-sm font-medium">
                           {ride.totalSeats - ride.availableSeats}/{ride.totalSeats} booked
                         </span>
