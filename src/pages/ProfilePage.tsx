@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { getDrivers, getVehicles } from '@/lib/storage';
+import { useQuery } from '@tanstack/react-query';
+import { driverService, vehicleService } from '@/lib/firestore';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,12 +27,29 @@ const ProfilePage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  const drivers = getDrivers();
-  const vehicles = getVehicles();
+  // Fetch driver info if user is a driver
+  const { data: driverInfo, isLoading: driverLoading } = useQuery({
+    queryKey: ['driver', user?.id],
+    queryFn: () => driverService.getDriver(user!.id),
+    enabled: !!user && user.role === 'driver',
+  });
+
+  // Fetch vehicle info
+  const { data: vehicle, isLoading: vehicleLoading } = useQuery({
+    queryKey: ['vehicle', driverInfo?.vehicleId],
+    queryFn: () => vehicleService.getVehicle(driverInfo!.vehicleId),
+    enabled: !!driverInfo?.vehicleId,
+  });
   
   const isDriver = user?.role === 'driver';
-  const driverInfo = isDriver ? drivers[user?.id || ''] : null;
-  const vehicle = driverInfo ? vehicles[driverInfo.vehicleId] : null;
+
+  if (driverLoading || vehicleLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">Loading...</div>
+      </div>
+    );
+  }
 
   const handleLogout = () => {
     logout();

@@ -14,11 +14,12 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { SAMPLE_LOCATIONS, generateId } from '@/lib/dummy-data';
-import { getRides, setRides, getDrivers, getVehicles } from '@/lib/storage';
+import { SAMPLE_LOCATIONS } from '@/lib/dummy-data';
 import { format, addDays, setHours, setMinutes } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { RideDirection } from '@/types';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { rideService, driverService, vehicleService, userService } from '@/lib/firestore';
 import {
   Dialog,
   DialogContent,
@@ -31,11 +32,26 @@ const CreateRidePage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   
-  const drivers = getDrivers();
-  const vehicles = getVehicles();
-  const driverInfo = user ? drivers[user.id] : null;
-  const vehicle = driverInfo ? vehicles[driverInfo.vehicleId] : null;
+  // Fetch driver and vehicle data
+  const { data: driverInfo, isLoading: driverLoading } = useQuery({
+    queryKey: ['driver', user?.id],
+    queryFn: () => driverService.getDriver(user!.id),
+    enabled: !!user,
+  });
+
+  const { data: vehicle, isLoading: vehicleLoading } = useQuery({
+    queryKey: ['vehicle', driverInfo?.vehicleId],
+    queryFn: () => vehicleService.getVehicle(driverInfo!.vehicleId),
+    enabled: !!driverInfo?.vehicleId,
+  });
+
+  const { data: userProfile } = useQuery({
+    queryKey: ['user-profile', user?.id],
+    queryFn: () => userService.getUser(user!.id),
+    enabled: !!user,
+  });
   
   const [direction, setDirection] = useState<RideDirection>('to_office');
   const [date, setDate] = useState<Date | undefined>(addDays(new Date(), 1));
@@ -46,6 +62,15 @@ const CreateRidePage = () => {
   const [costPerSeat, setCostPerSeat] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+
+  // Show loading while fetching driver data
+  if (driverLoading || vehicleLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">Loading...</div>
+      </div>
+    );
+  }
 
   // Check if user is a driver
   if (!driverInfo || !vehicle) {
@@ -74,13 +99,13 @@ const CreateRidePage = () => {
   const handleDirectionChange = (value: RideDirection) => {
     setDirection(value);
     // Auto-fill locations based on direction
-    if (user?.homeLocation && user?.officeLocation) {
+    if (userProfile?.homeLocation && userProfile?.officeLocation) {
       if (value === 'to_office') {
-        setStartLocationId(user.homeLocation.id);
-        setEndLocationId(user.officeLocation.id);
+        setStartLocationId(userProfile.homeLocation.id);
+        setEndLocationId(userProfile.officeLocation.id);
       } else {
-        setStartLocationId(user.officeLocation.id);
-        setEndLocationId(user.homeLocation.id);
+        setStartLocationId(userProfile.officeLocation.id);
+        setEndLocationId(userProfile.homeLocation.id);
       }
     }
   };
@@ -120,24 +145,23 @@ const CreateRidePage = () => {
       const startLocation = SAMPLE_LOCATIONS.find(loc => loc.id === startLocationId)!;
       const endLocation = SAMPLE_LOCATIONS.find(loc => loc.id === endLocationId)!;
 
-      const rides = getRides();
-      const newRide = {
-        id: generateId(),
+      await rideService.createRide({
         driverId: user!.id,
         vehicleId: vehicle.id,
         startLocation,
         endLocation,
         direction,
-        departureTime: departureTime.toISOString(),
+        departureTime,
         availableSeats: parseInt(availableSeats),
         totalSeats: parseInt(availableSeats),
         costPerSeat: parseInt(costPerSeat),
-        status: 'scheduled' as const,
-        createdAt: new Date().toISOString(),
-      };
+        status: 'scheduled',
+        createdAt: new Date(),
+      });
 
-      rides[newRide.id] = newRide;
-      setRides(rides);
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['available-rides'] });
+      queryClient.invalidateQueries({ queryKey: ['driver-rides'] });
 
       setShowSuccess(true);
     } catch (error) {

@@ -1,156 +1,191 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, Session } from '../types';
-import { 
-  getSession, setSession, clearSession, 
-  getUsers, setUsers, getOTP, setOTP, clearOTP,
-  clearAllData
-} from '../lib/storage';
-import { generateId, initializeDummyData } from '../lib/dummy-data';
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  User as FirebaseUser,
+  sendEmailVerification,
+  updateProfile,
+  GoogleAuthProvider,
+  signInWithPopup
+} from 'firebase/auth';
+import { auth } from '../lib/firebase';
+import { userService } from '../lib/firestore';
+import { User } from '../types';
 
 interface AuthContextType {
   user: User | null;
+  firebaseUser: FirebaseUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  sendOTP: (phone: string) => Promise<boolean>;
-  verifyOTP: (phone: string, otp: string) => Promise<boolean>;
-  logout: () => void;
-  updateUser: (updates: Partial<User>) => void;
-  refreshUser: () => void;
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, name: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
+  logout: () => Promise<void>;
+  updateUser: (updates: Partial<User>) => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    initializeDummyData();
-    checkSession();
+    // Listen to authentication state changes
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setFirebaseUser(firebaseUser);
+
+      if (firebaseUser) {
+        try {
+          // Get user profile from Firestore
+          const userProfile = await userService.getUser(firebaseUser.uid);
+          if (userProfile) {
+            setUser(userProfile);
+          } else {
+            // Create user profile if it doesn't exist
+            const newUser: User = {
+              id: firebaseUser.uid,
+              name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+              email: firebaseUser.email || '',
+              role: 'passenger',
+              createdAt: new Date().toISOString(),
+            };
+            await userService.createUser(newUser);
+            setUser(newUser);
+          }
+        } catch (error) {
+          console.error('Error loading user profile:', error);
+          // Fallback: create user object from Firebase user data
+          const fallbackUser: User = {
+            id: firebaseUser.uid,
+            name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+            email: firebaseUser.email || '',
+            role: 'passenger',
+            createdAt: new Date().toISOString(),
+          };
+          setUser(fallbackUser);
+        }
+      } else {
+        setUser(null);
+      }
+
+      setIsLoading(false);
+    });
+
+    return unsubscribe;
   }, []);
 
-  const checkSession = () => {
-    const session = getSession();
-    if (session && new Date(session.expiresAt) > new Date()) {
-      const users = getUsers();
-      const currentUser = users[session.userId];
-      if (currentUser) {
-        setUser(currentUser);
-      }
-    }
-    setIsLoading(false);
-  };
-
-  const refreshUser = () => {
-    const session = getSession();
-    if (session) {
-      const users = getUsers();
-      const currentUser = users[session.userId];
-      if (currentUser) {
-        setUser(currentUser);
-      }
+  const signIn = async (email: string, password: string) => {
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+    } catch (error) {
+      console.error('Sign in error:', error);
+      throw error;
     }
   };
 
-  const sendOTP = async (phone: string): Promise<boolean> => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Generate dummy OTP (always 123456 for testing)
-    const otpData = {
-      phone,
-      otp: '123456',
-      expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
-      verified: false,
-    };
-    
-    setOTP(otpData);
-    console.log('OTP for testing:', otpData.otp);
-    return true;
-  };
+  const signUp = async (email: string, password: string, name: string) => {
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
 
-  const verifyOTP = async (phone: string, otp: string): Promise<boolean> => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    const otpData = getOTP();
-    
-    // Check if OTP matches and hasn't expired
-    if (
-      otpData &&
-      otpData.phone === phone &&
-      otpData.otp === otp &&
-      new Date(otpData.expiresAt) > new Date()
-    ) {
-      clearOTP();
-      
-      // Check if user exists or create new user
-      const users = getUsers();
-      let existingUser = Object.values(users).find(u => u.phone === phone);
-      
-      if (!existingUser) {
-        // Create new user
-        const newUser: User = {
-          id: generateId(),
-          phone,
-          name: '',
-          isProfileComplete: false,
-          role: 'passenger',
-          createdAt: new Date().toISOString(),
-        };
-        users[newUser.id] = newUser;
-        setUsers(users);
-        existingUser = newUser;
-      }
-      
-      // Create session
-      const newSession: Session = {
-        userId: existingUser.id,
-        token: generateId(),
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      // Update display name
+      await updateProfile(userCredential.user, { displayName: name });
+
+      // Send email verification
+      await sendEmailVerification(userCredential.user);
+
+      // Create user profile in Firestore
+      const newUser: User = {
+        id: userCredential.user.uid,
+        name,
+        email,
+        role: 'passenger',
+        createdAt: new Date().toISOString(),
       };
-      setSession(newSession);
-      setUser(existingUser);
-      
-      return true;
+
+      await userService.createUser(newUser);
+    } catch (error) {
+      console.error('Sign up error:', error);
+      throw error;
     }
-    
-    return false;
   };
 
-  const logout = () => {
-    clearAllData();
-    setUser(null);
-    // Reinitialize dummy data for next session
-    initializeDummyData();
+  const signInWithGoogle = async () => {
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      console.error('Google sign in error:', error);
+      throw error;
+    }
   };
 
-  const updateUser = (updates: Partial<User>) => {
-    if (!user) return;
-    
-    const users = getUsers();
-    const updatedUser = { ...user, ...updates };
-    users[user.id] = updatedUser;
-    setUsers(users);
-    setUser(updatedUser);
+  const logout = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error('Logout error:', error);
+      throw error;
+    }
   };
 
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isLoading,
-        isAuthenticated: !!user,
-        sendOTP,
-        verifyOTP,
-        logout,
-        updateUser,
-        refreshUser,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
+  const updateUser = async (updates: Partial<User>) => {
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+
+    // Ensure user has an id - if not, try to get it from firebaseUser
+    let userId = user.id;
+    if (!userId && firebaseUser) {
+      userId = firebaseUser.uid;
+    }
+
+    if (!userId) {
+      throw new Error('User ID is missing - no firebaseUser available');
+    }
+
+    try {
+      const updatedUser = { ...user, ...updates, id: userId };
+      await userService.updateUser(userId, updates);
+      setUser(updatedUser);
+    } catch (error) {
+      console.error('Update user error:', error);
+      throw error;
+    }
+  };
+
+  const refreshUser = async () => {
+    if (!firebaseUser) return;
+
+    try {
+      const userProfile = await userService.getUser(firebaseUser.uid);
+      if (userProfile) {
+        setUser(userProfile);
+      }
+    } catch (error) {
+      console.error('Refresh user error:', error);
+      throw error;
+    }
+  };
+
+  const value = {
+    user,
+    firebaseUser,
+    isLoading,
+    isAuthenticated: !!firebaseUser,
+    signIn,
+    signUp,
+    signInWithGoogle,
+    logout,
+    updateUser,
+    refreshUser,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

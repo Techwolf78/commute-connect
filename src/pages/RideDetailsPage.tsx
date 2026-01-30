@@ -10,12 +10,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { getRides, getUsers, getDrivers, getVehicles, getBookings, setBookings } from '@/lib/storage';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
-import { generateId } from '@/lib/dummy-data';
 import { PaymentMethod, Booking } from '@/types';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { rideService, userService, driverService, vehicleService, bookingService } from '@/lib/firestore';
 import {
   Dialog,
   DialogContent,
@@ -29,21 +29,71 @@ const RideDetailsPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   
   const [seatsToBook, setSeatsToBook] = useState('1');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('upi');
   const [isBooking, setIsBooking] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   
-  const rides = getRides();
-  const users = getUsers();
-  const drivers = getDrivers();
-  const vehicles = getVehicles();
-  
-  const ride = id ? rides[id] : null;
-  const driver = ride ? users[ride.driverId] : null;
-  const driverInfo = ride ? drivers[ride.driverId] : null;
-  const vehicle = ride ? vehicles[ride.vehicleId] : null;
+  // Fetch ride details
+  const { data: ride, isLoading: rideLoading } = useQuery({
+    queryKey: ['ride', id],
+    queryFn: () => rideService.getRide(id!),
+    enabled: !!id,
+  });
+
+  // Fetch driver info
+  const { data: driver, isLoading: driverLoading } = useQuery({
+    queryKey: ['user', ride?.driverId],
+    queryFn: () => userService.getUser(ride!.driverId),
+    enabled: !!ride?.driverId,
+  });
+
+  // Fetch driver profile
+  const { data: driverInfo, isLoading: driverInfoLoading } = useQuery({
+    queryKey: ['driver', ride?.driverId],
+    queryFn: () => driverService.getDriver(ride!.driverId),
+    enabled: !!ride?.driverId,
+  });
+
+  // Fetch vehicle info
+  const { data: vehicle, isLoading: vehicleLoading } = useQuery({
+    queryKey: ['vehicle', driverInfo?.vehicleId],
+    queryFn: () => vehicleService.getVehicle(driverInfo!.vehicleId),
+    enabled: !!driverInfo?.vehicleId,
+  });
+
+  // Fetch existing bookings for this ride
+  const { data: existingBookings = [] } = useQuery({
+    queryKey: ['ride-bookings', id],
+    queryFn: () => bookingService.getBookingsByRide(id!),
+    enabled: !!id,
+  });
+
+  // Create booking mutation
+  const createBookingMutation = useMutation({
+    mutationFn: (bookingData: Omit<Booking, 'id'>) => bookingService.createBooking(bookingData),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ride-bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['available-rides'] });
+      setShowSuccess(true);
+    },
+    onError: (error) => {
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to book ride.' });
+    },
+    onSettled: () => {
+      setIsBooking(false);
+    },
+  });
+
+  if (rideLoading || driverLoading || driverInfoLoading || vehicleLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">Loading...</div>
+      </div>
+    );
+  }
 
   if (!ride) {
     return (
@@ -93,44 +143,16 @@ const RideDetailsPage = () => {
     // Simulate payment processing
     await new Promise(resolve => setTimeout(resolve, 1500));
 
-    try {
-      const bookings = getBookings();
-      const newBooking: Booking = {
-        id: generateId(),
-        rideId: ride.id,
-        passengerId: user.id,
-        seatsBooked: seats,
-        totalCost,
-        status: 'confirmed',
-        paymentMethod,
-        paymentStatus: 'paid',
-        bookedAt: new Date().toISOString(),
-      };
-
-      bookings[newBooking.id] = newBooking;
-      setBookings(bookings);
-
-      // Update ride available seats
-      const updatedRides = getRides();
-      updatedRides[ride.id] = {
-        ...ride,
-        availableSeats: ride.availableSeats - seats,
-      };
-      
-      // Need to import setRides
-      const { setRides } = await import('@/lib/storage');
-      setRides(updatedRides);
-
-      setShowSuccess(true);
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Booking Failed',
-        description: 'Something went wrong. Please try again.',
-      });
-    } finally {
-      setIsBooking(false);
-    }
+    createBookingMutation.mutate({
+      rideId: ride.id,
+      passengerId: user.id,
+      seatsBooked: seats,
+      totalCost,
+      status: 'confirmed',
+      paymentMethod,
+      paymentStatus: 'paid',
+      bookedAt: new Date(),
+    });
   };
 
   const handleSuccessClose = () => {
@@ -162,11 +184,11 @@ const RideDetailsPage = () => {
             <div className="flex items-center gap-2 text-sm">
               <Clock className="h-4 w-4 text-muted-foreground" />
               <span className="font-medium">
-                {format(new Date(ride.departureTime), 'EEEE, MMMM d, yyyy')}
+                {format(ride.departureTime, 'EEEE, MMMM d, yyyy')}
               </span>
               <span className="text-muted-foreground">at</span>
               <span className="font-medium">
-                {format(new Date(ride.departureTime), 'h:mm a')}
+                {format(ride.departureTime, 'h:mm a')}
               </span>
             </div>
 

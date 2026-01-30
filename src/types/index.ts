@@ -1,15 +1,15 @@
 // User Types
 export interface User {
   id: string;
-  phone: string;
+  email: string;
   name: string;
-  email?: string;
+  phone?: string;
   profilePhoto?: string;
-  isProfileComplete: boolean;
   role: 'passenger' | 'driver';
   homeLocation?: Location;
   officeLocation?: Location;
-  createdAt: string;
+  isProfileComplete?: boolean;
+  createdAt: Date;
 }
 
 export interface Location {
@@ -27,7 +27,7 @@ export interface Driver {
   isVerified: boolean;
   rating: number;
   totalRides: number;
-  joinedAsDriverAt: string;
+  joinedAsDriverAt: Date;
 }
 
 export interface Vehicle {
@@ -52,13 +52,14 @@ export interface Ride {
   startLocation: Location;
   endLocation: Location;
   direction: RideDirection;
-  departureTime: string;
+  departureTime: Date;
   availableSeats: number;
   totalSeats: number;
   costPerSeat: number;
   status: RideStatus;
   route?: string;
-  createdAt: string;
+  createdAt: Date;
+  updatedAt?: Date;
 }
 
 // Booking Types
@@ -73,9 +74,9 @@ export interface Booking {
   status: BookingStatus;
   paymentMethod: PaymentMethod;
   paymentStatus: 'pending' | 'paid' | 'refunded';
-  bookedAt: string;
-  cancelledAt?: string;
-  completedAt?: string;
+  bookedAt: Date;
+  cancelledAt?: Date;
+  completedAt?: Date;
 }
 
 // Payment Types
@@ -88,7 +89,7 @@ export interface Payment {
   method: PaymentMethod;
   status: 'pending' | 'success' | 'failed';
   transactionId?: string;
-  createdAt: string;
+  createdAt: Date;
 }
 
 // Rating Types
@@ -100,20 +101,20 @@ export interface Rating {
   toUserId: string;
   rating: number;
   comment?: string;
-  createdAt: string;
+  createdAt: Date;
 }
 
 // Session Types
 export interface Session {
   userId: string;
   token: string;
-  expiresAt: string;
+  expiresAt: Date;
 }
 
 // OTP Types
 export interface OTPVerification {
   phone: string;
   otp: string;
-  expiresAt: string;
+  expiresAt: Date;
   verified: boolean;
 }

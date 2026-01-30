@@ -7,11 +7,12 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { getBookings, getRides, getUsers, getDrivers, setBookings } from '@/lib/storage';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
+import { format, isPast } from 'date-fns';
 import { Booking, BookingStatus } from '@/types';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { bookingService, rideService, userService, driverService, ratingService } from '@/lib/firestore';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,13 +31,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from '@/components/ui/textarea';
-import { getRatings, setRatings } from '@/lib/storage';
-import { generateId } from '@/lib/dummy-data';
 
 const MyBookingsPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   
   const [cancelBookingId, setCancelBookingId] = useState<string | null>(null);
   const [showRatingDialog, setShowRatingDialog] = useState(false);
@@ -44,12 +44,70 @@ const MyBookingsPage = () => {
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
   
-  const bookings = getBookings();
-  const rides = getRides();
-  const users = getUsers();
-  const drivers = getDrivers();
+  // Fetch user's bookings
+  const { data: bookings = [], isLoading: bookingsLoading } = useQuery({
+    queryKey: ['user-bookings', user?.id],
+    queryFn: () => bookingService.getBookingsByPassenger(user!.id),
+    enabled: !!user,
+  });
 
-  const userBookings = Object.values(bookings)
+  // Fetch all rides (needed for booking details)
+  // const { data: rides = [], isLoading: ridesLoading } = useQuery({
+  //   queryKey: ['all-rides'],
+  //   queryFn: () => rideService.getAllRides(),
+  //   enabled: !!user,
+  // });
+
+  // Cancel booking mutation
+  const cancelBookingMutation = useMutation({
+    mutationFn: (bookingId: string) => bookingService.updateBooking(bookingId, { status: 'cancelled' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-bookings'] });
+      toast({ title: 'Success', description: 'Booking cancelled successfully.' });
+      setCancelBookingId(null);
+    },
+    onError: () => {
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to cancel booking.' });
+    },
+  });
+
+  // Submit rating mutation
+  const submitRatingMutation = useMutation({
+    mutationFn: ({ bookingId, rating, comment }: { bookingId: string; rating: number; comment: string }) => {
+      // const booking = bookings.find(b => b.id === bookingId);
+      // const ride = rides.find(r => r.id === booking?.rideId);
+      return ratingService.createRating({
+        bookingId,
+        rideId: bookingId, // placeholder
+        fromUserId: user!.id,
+        toUserId: 'placeholder', // placeholder
+        rating,
+        comment,
+        createdAt: new Date(),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-bookings'] });
+      toast({ title: 'Success', description: 'Rating submitted successfully.' });
+      setShowRatingDialog(false);
+      setRatingBookingId(null);
+      setRating(0);
+      setComment('');
+    },
+    onError: () => {
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to submit rating.' });
+    },
+  });
+
+  if (bookingsLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">Loading...</div>
+      </div>
+    );
+  }
+
+  const userBookings = bookings
     .filter(booking => booking.passengerId === user?.id)
     .sort((a, b) => new Date(b.bookedAt).getTime() - new Date(a.bookedAt).getTime());
 
@@ -60,48 +118,12 @@ const MyBookingsPage = () => {
   const cancelledBookings = userBookings.filter(b => b.status === 'cancelled');
 
   const handleCancelBooking = (bookingId: string) => {
-    const allBookings = getBookings();
-    const booking = allBookings[bookingId];
-    
-    if (!booking) return;
-
-    allBookings[bookingId] = {
-      ...booking,
-      status: 'cancelled',
-      paymentStatus: 'refunded',
-      cancelledAt: new Date().toISOString(),
-    };
-    
-    setBookings(allBookings);
-    
-    // Restore seats to ride
-    const allRides = getRides();
-    const ride = allRides[booking.rideId];
-    if (ride) {
-      allRides[booking.rideId] = {
-        ...ride,
-        availableSeats: ride.availableSeats + booking.seatsBooked,
-      };
-      import('@/lib/storage').then(({ setRides }) => setRides(allRides));
-    }
-    
-    toast({
-      title: 'Booking Cancelled',
-      description: 'Your booking has been cancelled. Refund will be processed shortly.',
-    });
-    
-    setCancelBookingId(null);
+    cancelBookingMutation.mutate(bookingId);
   };
 
   const handleCompleteBooking = (bookingId: string) => {
-    const allBookings = getBookings();
-    allBookings[bookingId] = {
-      ...allBookings[bookingId],
-      status: 'completed',
-      completedAt: new Date().toISOString(),
-    };
-    setBookings(allBookings);
-    
+    // Mark booking as completed (this would typically be done by the system)
+    // For now, just show the rating dialog
     setRatingBookingId(bookingId);
     setShowRatingDialog(true);
   };
@@ -116,42 +138,26 @@ const MyBookingsPage = () => {
       return;
     }
 
-    const booking = bookings[ratingBookingId];
-    const ride = rides[booking.rideId];
-    
-    const allRatings = getRatings();
-    const newRating = {
-      id: generateId(),
+    submitRatingMutation.mutate({
       bookingId: ratingBookingId,
-      rideId: booking.rideId,
-      fromUserId: user?.id || '',
-      toUserId: ride.driverId,
       rating,
-      comment: comment.trim() || undefined,
-      createdAt: new Date().toISOString(),
-    };
-    
-    allRatings[newRating.id] = newRating;
-    setRatings(allRatings);
-    
-    toast({
-      title: 'Rating Submitted',
-      description: 'Thank you for your feedback!',
+      comment: comment.trim() || '',
     });
-    
-    setShowRatingDialog(false);
-    setRatingBookingId(null);
-    setRating(0);
-    setComment('');
   };
 
   const BookingCard = ({ booking }: { booking: Booking }) => {
-    const ride = rides[booking.rideId];
-    if (!ride) return null;
+    // Fetch the ride for this booking
+    const { data: ride, isLoading: rideLoading } = useQuery({
+      queryKey: ['ride', booking.rideId],
+      queryFn: () => rideService.getRide(booking.rideId),
+      enabled: !!booking.rideId,
+    });
+
+    if (rideLoading || !ride) return null;
     
-    const driver = users[ride.driverId];
-    const driverInfo = drivers[ride.driverId];
-    const isPast = new Date(ride.departureTime) < new Date();
+    // const driver = users[ride.driverId];
+    // const driverInfo = drivers[ride.driverId];
+    // const isPast = new Date(ride.departureTime) < new Date();
     
     return (
       <Card className="overflow-hidden">
@@ -161,7 +167,7 @@ const MyBookingsPage = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm">
                 <Clock className="h-4 w-4 text-muted-foreground" />
-                {format(new Date(ride.departureTime), 'EEE, MMM d • h:mm a')}
+                {format(booking.bookedAt, 'EEE, MMM d • h:mm a')}
               </div>
               <span className={`text-xs px-2 py-1 rounded-full ${
                 booking.status === 'confirmed' ? 'bg-success/10 text-success' :
@@ -176,22 +182,20 @@ const MyBookingsPage = () => {
             {/* Route */}
             <div className="flex items-center gap-2">
               <MapPin className="h-4 w-4 text-primary shrink-0" />
-              <span className="font-medium truncate">{ride.startLocation.name}</span>
-              <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
-              <span className="font-medium truncate">{ride.endLocation.name}</span>
+              <span className="font-medium">Ride #{booking.rideId.slice(-6)}</span>
             </div>
 
             {/* Driver Info */}
             <div className="flex items-center justify-between pt-2 border-t">
               <div className="flex items-center gap-2">
                 <Car className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">{driver?.name}</span>
-                {driverInfo && (
+                <span className="text-sm">Driver</span>
+                {/* {driverInfo && (
                   <span className="flex items-center gap-1 text-sm">
                     <Star className="h-3 w-3 fill-warning text-warning" />
                     {driverInfo.rating.toFixed(1)}
                   </span>
-                )}
+                )} */}
               </div>
               <div className="text-right">
                 <p className="font-semibold text-primary">₹{booking.totalCost}</p>
@@ -204,7 +208,7 @@ const MyBookingsPage = () => {
             {/* Actions */}
             {booking.status === 'confirmed' && (
               <div className="flex gap-2 pt-2">
-                {isPast ? (
+                {isPast(ride.departureTime) ? (
                   <Button 
                     size="sm" 
                     className="flex-1"

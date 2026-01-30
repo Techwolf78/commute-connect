@@ -9,7 +9,6 @@ import MainLayout from "@/components/MainLayout";
 
 // Auth Pages
 import LoginPage from "./pages/LoginPage";
-import VerifyOTPPage from "./pages/VerifyOTPPage";
 import CompleteProfilePage from "./pages/CompleteProfilePage";
 
 // Main Pages
@@ -33,11 +32,13 @@ const App = () => (
       <Toaster />
       <Sonner />
       <AuthProvider>
-        <BrowserRouter>
+        <BrowserRouter future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}>
           <Routes>
             {/* Public Routes */}
             <Route path="/login" element={<LoginPage />} />
-            <Route path="/verify-otp" element={<VerifyOTPPage />} />
             
             {/* Profile Completion (auth required, profile not required) */}
             <Route path="/complete-profile" element={

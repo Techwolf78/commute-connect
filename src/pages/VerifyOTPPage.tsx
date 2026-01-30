@@ -6,25 +6,39 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { ConfirmationResult } from 'firebase/auth';
 
 const VerifyOTPPage = () => {
   const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [resendTimer, setResendTimer] = useState(30);
   const [canResend, setCanResend] = useState(false);
-  
+
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const { verifyOTP, sendOTP, user } = useAuth();
-  
+  const { user } = useAuth();
+
+  // Placeholder functions - need to implement in AuthContext
+  const verifyOTP = async (confirmationResult: ConfirmationResult, otp: string) => {
+    // TODO: Implement OTP verification
+    console.log('Verifying OTP:', otp);
+  };
+
+  const sendOTP = async (phone: string) => {
+    // TODO: Implement OTP sending
+    console.log('Sending OTP to:', phone);
+    return null;
+  };
+
   const phone = location.state?.phone;
+  const confirmationResult = location.state?.confirmationResult as ConfirmationResult;
 
   useEffect(() => {
-    if (!phone) {
+    if (!phone || !confirmationResult) {
       navigate('/login');
     }
-  }, [phone, navigate]);
+  }, [phone, confirmationResult, navigate]);
 
   // Navigate after successful verification
   useEffect(() => {
@@ -52,30 +66,33 @@ const VerifyOTPPage = () => {
   };
 
   const handleVerify = async (otpValue: string) => {
+    if (!confirmationResult) return;
+
     setIsLoading(true);
-    
+
     try {
-      const success = await verifyOTP(phone, otpValue);
-      
-      if (success) {
-        toast({
-          title: 'Verified Successfully',
-          description: 'Welcome to CommutePal!',
-        });
-        // Navigation will be handled by useEffect when user state updates
-      } else {
-        toast({
-          variant: 'destructive',
-          title: 'Invalid OTP',
-          description: 'Please check the code and try again.',
-        });
-        setOtp('');
-      }
+      await verifyOTP(confirmationResult, otpValue);
+      toast({
+        title: 'Verified Successfully',
+        description: 'Welcome to Commute Connect!',
+      });
+      // Navigation will be handled by useEffect when user state updates
     } catch (error) {
+      console.error('Verification error:', error);
+      let errorMessage = 'Invalid OTP. Please check the code and try again.';
+
+      if ((error as Error & { code?: string }).code === 'auth/invalid-verification-code') {
+        errorMessage = 'Invalid verification code. Please try again.';
+      } else if (error.code === 'auth/code-expired') {
+        errorMessage = 'Verification code has expired. Please request a new one.';
+      } else if (error.code === 'auth/too-many-requests') {
+        errorMessage = 'Too many failed attempts. Please try again later.';
+      }
+
       toast({
         variant: 'destructive',
         title: 'Verification Failed',
-        description: 'Something went wrong. Please try again.',
+        description: errorMessage,
       });
       setOtp('');
     } finally {
@@ -84,10 +101,10 @@ const VerifyOTPPage = () => {
   };
 
   const handleResendOTP = async () => {
-    if (!canResend) return;
-    
+    if (!canResend || !phone) return;
+
     try {
-      await sendOTP(phone);
+      const newConfirmationResult = await sendOTP(phone);
       toast({
         title: 'OTP Resent',
         description: 'A new verification code has been sent.',
@@ -95,16 +112,28 @@ const VerifyOTPPage = () => {
       setResendTimer(30);
       setCanResend(false);
       setOtp('');
+      // Update the location state with new confirmation result
+      navigate('/verify-otp', {
+        state: { phone, confirmationResult: newConfirmationResult },
+        replace: true
+      });
     } catch (error) {
+      console.error('Resend error:', error);
+      let errorMessage = 'Failed to resend OTP. Please try again later.';
+
+      if ((error as Error & { code?: string }).code === 'auth/too-many-requests') {
+        errorMessage = 'Too many requests. Please wait before requesting again.';
+      }
+
       toast({
         variant: 'destructive',
         title: 'Failed to Resend',
-        description: 'Please try again later.',
+        description: errorMessage,
       });
     }
   };
 
-  if (!phone) return null;
+  if (!phone || !confirmationResult) return null;
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background">
@@ -125,7 +154,7 @@ const VerifyOTPPage = () => {
             <CardTitle className="text-2xl text-center">Verify Your Number</CardTitle>
             <CardDescription className="text-center">
               Enter the 6-digit code sent to<br />
-              <span className="font-medium text-foreground">{phone}</span>
+              <span className="font-medium text-foreground">+91 {phone}</span>
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -172,11 +201,6 @@ const VerifyOTPPage = () => {
                 </p>
               )}
             </div>
-
-            {/* Demo hint */}
-            <p className="text-center text-sm text-muted-foreground border-t pt-4">
-              Demo OTP: <span className="font-mono font-medium">123456</span>
-            </p>
           </CardContent>
         </Card>
       </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, MapPin, Building2, ArrowRight, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,18 +10,32 @@ import { useAuth } from '@/contexts/AuthContext';
 import { SAMPLE_LOCATIONS } from '@/lib/dummy-data';
 
 const CompleteProfilePage = () => {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  const [name, setName] = useState(user?.name || '');
-  const [email, setEmail] = useState(user?.email || '');
-  const [homeLocationId, setHomeLocationId] = useState(user?.homeLocation?.id || '');
-  const [officeLocationId, setOfficeLocationId] = useState(user?.officeLocation?.id || '');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [homeLocationId, setHomeLocationId] = useState('');
+  const [officeLocationId, setOfficeLocationId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Update form fields when user data loads
+  useEffect(() => {
+    if (user) {
+      setName(user.name || '');
+      setEmail(user.email || '');
+      setHomeLocationId(user.homeLocation?.id || '');
+      setOfficeLocationId(user.officeLocation?.id || '');
+    }
+  }, [user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (authLoading) {
+      return; // Wait for user data to load
+    }
     
     if (!name.trim()) {
       toast({
@@ -62,6 +76,14 @@ const CompleteProfilePage = () => {
     setIsLoading(true);
 
     try {
+      if (!user) {
+        throw new Error('User not found. Please try logging in again.');
+      }
+
+      if (!user.id) {
+        throw new Error('User ID is missing. Please try logging in again.');
+      }
+
       const homeLocation = SAMPLE_LOCATIONS.find(loc => loc.id === homeLocationId);
       const officeLocation = SAMPLE_LOCATIONS.find(loc => loc.id === officeLocationId);
 
@@ -89,6 +111,17 @@ const CompleteProfilePage = () => {
       setIsLoading(false);
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <span className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
+          <p className="text-muted-foreground">Loading your profile...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background">

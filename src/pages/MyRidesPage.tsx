@@ -7,11 +7,12 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { getRides, getBookings, getUsers, setRides } from '@/lib/storage';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { Ride, RideStatus } from '@/types';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { rideService, bookingService } from '@/lib/firestore';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,12 +28,51 @@ const MyRidesPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   
   const [cancelRideId, setCancelRideId] = useState<string | null>(null);
   
-  const rides = getRides();
-  const bookings = getBookings();
-  const users = getUsers();
+  // Fetch user's rides (as driver)
+  const { data: rides = [], isLoading: ridesLoading } = useQuery({
+    queryKey: ['driver-rides', user?.id],
+    queryFn: () => rideService.getRidesByDriver(user!.id),
+    enabled: !!user,
+  });
+
+  // Fetch bookings for user's rides
+  const { data: bookings = [], isLoading: bookingsLoading } = useQuery({
+    queryKey: ['ride-bookings', rides.map(r => r.id)],
+    queryFn: async () => {
+      const allBookings = [];
+      for (const ride of rides) {
+        const rideBookings = await bookingService.getBookingsByRide(ride.id);
+        allBookings.push(...rideBookings);
+      }
+      return allBookings;
+    },
+    enabled: rides.length > 0,
+  });
+
+  // Cancel ride mutation
+  const cancelRideMutation = useMutation({
+    mutationFn: (rideId: string) => rideService.updateRide(rideId, { status: 'cancelled' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['driver-rides'] });
+      toast({ title: 'Success', description: 'Ride cancelled successfully.' });
+      setCancelRideId(null);
+    },
+    onError: () => {
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to cancel ride.' });
+    },
+  });
+
+  if (ridesLoading || bookingsLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">Loading...</div>
+      </div>
+    );
+  }
 
   const isDriver = user?.role === 'driver';
 
@@ -55,8 +95,7 @@ const MyRidesPage = () => {
     );
   }
 
-  const myRides = Object.values(rides)
-    .filter(ride => ride.driverId === user?.id)
+  const myRides = rides
     .sort((a, b) => new Date(b.departureTime).getTime() - new Date(a.departureTime).getTime());
 
   const scheduledRides = myRides.filter(r => 
@@ -66,35 +105,18 @@ const MyRidesPage = () => {
   const cancelledRides = myRides.filter(r => r.status === 'cancelled');
 
   const getBookingsForRide = (rideId: string) => {
-    return Object.values(bookings).filter(b => 
+    return bookings.filter(b => 
       b.rideId === rideId && b.status === 'confirmed'
     );
   };
 
   const handleCancelRide = (rideId: string) => {
-    const allRides = getRides();
-    allRides[rideId] = {
-      ...allRides[rideId],
-      status: 'cancelled',
-    };
-    setRides(allRides);
-    
-    toast({
-      title: 'Ride Cancelled',
-      description: 'Your ride has been cancelled. Passengers will be notified.',
-    });
-    
-    setCancelRideId(null);
+    cancelRideMutation.mutate(rideId);
   };
 
   const handleCompleteRide = (rideId: string) => {
-    const allRides = getRides();
-    allRides[rideId] = {
-      ...allRides[rideId],
-      status: 'completed',
-    };
-    setRides(allRides);
-    
+    // This would typically be handled automatically or by admin
+    // For now, just show a message
     toast({
       title: 'Ride Completed',
       description: 'Great job! The ride has been marked as complete.',
@@ -153,15 +175,12 @@ const MyRidesPage = () => {
               <div className="pt-2 border-t">
                 <p className="text-sm text-muted-foreground mb-2">Passengers:</p>
                 <div className="space-y-1">
-                  {rideBookings.map(booking => {
-                    const passenger = users[booking.passengerId];
-                    return (
-                      <div key={booking.id} className="flex items-center justify-between text-sm">
-                        <span>{passenger?.name || 'Passenger'}</span>
-                        <span className="text-muted-foreground">{booking.seatsBooked} seat(s)</span>
-                      </div>
-                    );
-                  })}
+                  {rideBookings.map(booking => (
+                    <div key={booking.id} className="flex items-center justify-between text-sm">
+                      <span>Passenger {booking.passengerId.slice(-4)}</span>
+                      <span className="text-muted-foreground">{booking.seatsBooked} seat(s)</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}

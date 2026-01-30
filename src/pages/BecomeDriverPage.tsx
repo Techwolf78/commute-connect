@@ -10,8 +10,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { getDrivers, setDrivers, getVehicles, setVehicles } from '@/lib/storage';
-import { generateId } from '@/lib/dummy-data';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { driverService, vehicleService, userService } from '@/lib/firestore';
 import {
   Dialog,
   DialogContent,
@@ -19,11 +19,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Driver, Vehicle } from '@/types';
 
 const BecomeDriverPage = () => {
   const navigate = useNavigate();
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, refreshUser } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   
   const [make, setMake] = useState('');
   const [model, setModel] = useState('');
@@ -35,8 +37,38 @@ const BecomeDriverPage = () => {
   const [showSuccess, setShowSuccess] = useState(false);
 
   // Check if already a driver
-  const drivers = getDrivers();
-  if (user && drivers[user.id]) {
+  const { data: existingDriver, isLoading: driverLoading } = useQuery({
+    queryKey: ['driver', user?.id],
+    queryFn: () => driverService.getDriver(user!.id),
+    enabled: !!user,
+  });
+
+  // Create driver and vehicle mutations
+  const createDriverMutation = useMutation({
+    mutationFn: (driverData: Driver) => driverService.createDriver(driverData),
+    onSuccess: (driver) => {
+      queryClient.invalidateQueries({ queryKey: ['driver'] });
+      return driver;
+    },
+  });
+
+  const createVehicleMutation = useMutation({
+    mutationFn: (vehicleData: Omit<Vehicle, 'id'>) => vehicleService.createVehicle(vehicleData),
+    onSuccess: (vehicle) => {
+      queryClient.invalidateQueries({ queryKey: ['vehicle'] });
+      return vehicle;
+    },
+  });
+
+  if (driverLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">Loading...</div>
+      </div>
+    );
+  }
+
+  if (existingDriver) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card>
@@ -92,11 +124,8 @@ const BecomeDriverPage = () => {
     setIsSubmitting(true);
 
     try {
-      // Create vehicle
-      const vehicleId = generateId();
-      const vehicles = getVehicles();
-      vehicles[vehicleId] = {
-        id: vehicleId,
+      // Create vehicle first
+      const vehicle = await createVehicleMutation.mutateAsync({
         driverId: user!.id,
         make: make.trim(),
         model: model.trim(),
@@ -104,27 +133,32 @@ const BecomeDriverPage = () => {
         color: color.trim(),
         licensePlate: licensePlate.toUpperCase().trim(),
         seats: parseInt(seats),
-      };
-      setVehicles(vehicles);
+      });
 
       // Create driver profile
-      const allDrivers = getDrivers();
-      allDrivers[user!.id] = {
+      await createDriverMutation.mutateAsync({
         userId: user!.id,
-        vehicleId,
+        vehicleId: vehicle.id,
         isVerified: true,
         rating: 5.0,
         totalRides: 0,
-        joinedAsDriverAt: new Date().toISOString(),
-      };
-      setDrivers(allDrivers);
+        joinedAsDriverAt: new Date(),
+      });
 
-      // Update user role
-      updateUser({ role: 'driver' });
+      // Update user role to driver
+      await updateUser({ role: 'driver' });
+      
+      // Refresh user data to ensure consistency
+      await refreshUser();
 
       setShowSuccess(true);
     } catch (error) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to register as driver.' });
+      console.error('Error registering as driver:', error);
+      toast({ 
+        variant: 'destructive', 
+        title: 'Registration Failed', 
+        description: error instanceof Error ? error.message : 'Failed to register as driver. Please try again.' 
+      });
     } finally {
       setIsSubmitting(false);
     }
