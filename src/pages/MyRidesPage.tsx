@@ -35,11 +35,14 @@ const MyRidesPage = () => {
   // Fetch user's rides (as driver)
   const { data: ridesData, isLoading: ridesLoading } = useQuery({
     queryKey: ['driver-rides', user?.id],
-    queryFn: () => rideService.getRidesByDriver(user!.id),
+    queryFn: async () => {
+      const result = await rideService.getRidesByDriver(user!.id);
+      return Array.isArray(result) ? result : [];
+    },
     enabled: !!user,
   });
 
-  const rides = ridesData ?? [];
+  const rides = Array.isArray(ridesData) ? ridesData : [];
 
   // Fetch bookings for user's rides
   const { data: bookingsData, isLoading: bookingsLoading } = useQuery({
@@ -48,14 +51,16 @@ const MyRidesPage = () => {
       const allBookings = [];
       for (const ride of rides) {
         const rideBookings = await bookingService.getBookingsByRide(ride.id);
-        allBookings.push(...rideBookings);
+        if (Array.isArray(rideBookings)) {
+          allBookings.push(...rideBookings);
+        }
       }
       return allBookings;
     },
     enabled: !!user && rides.length > 0,
   });
 
-  const bookings = bookingsData ?? [];
+  const bookings = Array.isArray(bookingsData) ? bookingsData : [];
 
   // Cancel ride mutation
   const cancelRideMutation = useMutation({

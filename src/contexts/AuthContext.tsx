@@ -65,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                   name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
                   email: firebaseUser.email || '',
                   role: 'passenger',
-                  createdAt: new Date().toISOString(),
+                  createdAt: new Date(),
                 };
                 await userService.createUser(newUser);
                 setUser(newUser);
@@ -78,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
                 email: firebaseUser.email || '',
                 role: 'passenger',
-                createdAt: new Date().toISOString(),
+                createdAt: new Date(),
               };
               setUser(fallbackUser);
             }
@@ -133,7 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         name,
         email,
         role: 'passenger',
-        createdAt: new Date().toISOString(),
+        createdAt: new Date(),
       };
 
       await userService.createUser(newUser);

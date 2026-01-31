@@ -47,11 +47,14 @@ const MyBookingsPage = () => {
   // Fetch user's bookings
   const { data: bookingsData, isLoading: bookingsLoading } = useQuery({
     queryKey: ['user-bookings', user?.id],
-    queryFn: () => bookingService.getBookingsByPassenger(user!.id),
+    queryFn: async () => {
+      const result = await bookingService.getBookingsByPassenger(user!.id);
+      return Array.isArray(result) ? result : [];
+    },
     enabled: !!user,
   });
 
-  const bookings = bookingsData ?? [];
+  const bookings = Array.isArray(bookingsData) ? bookingsData : [];
 
   // Fetch all rides (needed for booking details)
   // const { data: rides = [], isLoading: ridesLoading } = useQuery({

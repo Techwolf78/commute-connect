@@ -45,8 +45,11 @@ const FindRidesPage = () => {
       console.log('👤 FindRidesPage: Current user ID:', user?.id);
       console.log('🎭 FindRidesPage: Current user role:', user?.role);
       
+      // Ensure rides is an array
+      const ridesArray = Array.isArray(rides) ? rides : [];
+      
       // Filter out user's own rides
-      const filteredRides = rides.filter(ride => ride.driverId !== user?.id);
+      const filteredRides = ridesArray.filter(ride => ride.driverId !== user?.id);
       console.log('✅ FindRidesPage: After filtering own rides:', filteredRides);
       
       return filteredRides;
@@ -54,7 +57,7 @@ const FindRidesPage = () => {
     enabled: !!user,
   });
 
-  const allRides = allRidesData ?? [];
+  const allRides = Array.isArray(allRidesData) ? allRidesData : [];
 
   // Filter available rides based on search criteria
   const availableRides = allRides.filter(ride => {
