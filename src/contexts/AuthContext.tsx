@@ -140,7 +140,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithGoogle = async () => {
     if (!auth || typeof auth.signInWithPopup !== 'function') {
-      throw new Error('Firebase auth not initialized');
+      const errorMsg = 'Firebase auth not initialized. Please check that all Firebase environment variables are set correctly in Vercel.';
+      console.error(errorMsg);
+      throw new Error(errorMsg);
     }
     try {
       const provider = new GoogleAuthProvider();

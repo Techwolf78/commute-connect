@@ -11,15 +11,29 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
+// Debug: Log environment variables (remove in production)
+console.log('Firebase Config Check:', {
+  apiKey: !!import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: !!import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: !!import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  hasConfig: !!firebaseConfig.apiKey
+});
+
 // Initialize Firebase
 let app;
 let auth;
 let db;
 
 try {
+  if (!firebaseConfig.apiKey) {
+    throw new Error('Firebase API key is missing. Please check your environment variables.');
+  }
+
   app = initializeApp(firebaseConfig);
   auth = getAuth(app);
   db = getFirestore(app);
+
+  console.log('Firebase initialized successfully');
 } catch (error) {
   console.error('Error initializing Firebase:', error);
   // Create dummy objects to prevent crashes
