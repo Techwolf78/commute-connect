@@ -18,16 +18,36 @@ const LoginPage = () => {
   const { signIn, signUp, signInWithGoogle } = useAuth();
 
   const handleGoogleSignIn = async () => {
+    console.log('🎯 LoginPage: Google sign-in button clicked');
+    console.log('🔄 LoginPage: Setting loading state to true');
     setIsLoading(true);
     try {
+      console.log('🚀 LoginPage: Calling signInWithGoogle...');
       await signInWithGoogle();
+      console.log('✅ LoginPage: signInWithGoogle completed successfully');
       toast({
         title: 'Welcome!',
         description: 'You have been successfully signed in with Google.',
       });
+      console.log('🧭 LoginPage: Navigating to dashboard...');
       navigate('/dashboard');
     } catch (error: any) {
-      console.error('Google sign in error:', error);
+      console.error('❌ LoginPage: Google sign-in failed:', error);
+      console.error('🔍 LoginPage: Error details:', {
+        message: error.message,
+        name: error.name,
+        code: error.code
+      });
+      toast({
+        title: 'Sign in failed',
+        description: error.message || 'An error occurred during sign in.',
+        variant: 'destructive',
+      });
+    } finally {
+      console.log('🔄 LoginPage: Setting loading state to false');
+      setIsLoading(false);
+    }
+  };
       let errorMessage = 'Failed to sign in with Google. Please try again.';
 
       if (error.code === 'auth/popup-closed-by-user') {

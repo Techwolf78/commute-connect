@@ -35,19 +35,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    console.log('🔄 AuthContext: Setting up auth state listener...');
     if (!auth || typeof auth.onAuthStateChanged !== 'function') {
-      console.error('Firebase auth not properly initialized');
+      console.error('❌ AuthContext: Firebase auth not properly initialized');
+      console.error('🔍 Auth object:', auth);
+      console.error('🔍 Auth methods:', typeof auth?.onAuthStateChanged);
       setIsLoading(false);
       return () => {};
     }
 
-    try {
-      // Listen to authentication state changes
-      const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-        try {
-          setFirebaseUser(firebaseUser);
+    console.log('✅ AuthContext: Firebase auth is available, setting up listener...');
+    // Listen to authentication state changes
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      console.log('👤 AuthContext: Auth state changed:', firebaseUser ? 'User logged in' : 'User logged out');
+      try {
+        setFirebaseUser(firebaseUser);
 
-          if (firebaseUser) {
+        if (firebaseUser) {
             try {
               // Get user profile from Firestore
               const userProfile = await userService.getUser(firebaseUser.uid);
@@ -139,16 +143,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signInWithGoogle = async () => {
+    console.log('🔐 signInWithGoogle: Starting Google sign-in process...');
+    console.log('🔍 signInWithGoogle: Checking auth object:', {
+      auth: !!auth,
+      signInWithPopup: typeof auth?.signInWithPopup,
+      available: !!(auth && typeof auth.signInWithPopup === 'function')
+    });
+
     if (!auth || typeof auth.signInWithPopup !== 'function') {
       const errorMsg = 'Firebase auth not initialized. Please check that all Firebase environment variables are set correctly in Vercel.';
-      console.error(errorMsg);
+      console.error('❌ signInWithGoogle:', errorMsg);
+      console.error('🔍 signInWithGoogle: Auth object details:', auth);
       throw new Error(errorMsg);
     }
+
     try {
+      console.log('🌐 signInWithGoogle: Creating Google Auth provider...');
       const provider = new GoogleAuthProvider();
+
+      console.log('📱 signInWithGoogle: Opening Google sign-in popup...');
       await signInWithPopup(auth, provider);
+
+      console.log('✅ signInWithGoogle: Google sign-in successful!');
     } catch (error) {
-      console.error('Google sign in error:', error);
+      console.error('❌ signInWithGoogle: Google sign-in failed:', error);
+      console.error('🔍 signInWithGoogle: Error details:', {
+        name: error.name,
+        message: error.message,
+        code: error.code,
+        stack: error.stack
+      });
       throw error;
     }
   };
