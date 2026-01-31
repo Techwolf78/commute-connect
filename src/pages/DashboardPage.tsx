@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { rideService, bookingService } from '@/lib/firestore';
 import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
@@ -280,8 +280,34 @@ const TodaysRideCard = ({ ride, booking, isDriver }: { ride: Ride; booking?: Boo
 const DashboardPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const isDriver = user?.role === 'driver';
+
+  // Check for expired rides periodically
+  useEffect(() => {
+    const checkExpiredRides = async () => {
+      try {
+        console.log('⏰ DashboardPage: Running periodic expired rides check...');
+        await rideService.updateExpiredRides();
+        // Invalidate relevant queries to refresh the UI
+        queryClient.invalidateQueries({ queryKey: ['upcoming-rides'] });
+        queryClient.invalidateQueries({ queryKey: ['available-rides'] });
+        queryClient.invalidateQueries({ queryKey: ['driver-rides'] });
+        queryClient.invalidateQueries({ queryKey: ['driver-available-rides'] });
+      } catch (error) {
+        console.error('❌ DashboardPage: Error checking expired rides:', error);
+      }
+    };
+
+    // Check immediately on mount
+    checkExpiredRides();
+
+    // Set up interval to check every 5 minutes
+    const interval = setInterval(checkExpiredRides, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [queryClient]);
 
   // Fetch upcoming rides (available for booking)
   const { data: upcomingRidesData, isLoading: ridesLoading } = useQuery({

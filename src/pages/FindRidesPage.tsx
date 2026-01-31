@@ -10,7 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useAuth } from '@/contexts/AuthContext';
 import LocationPicker from '@/components/LocationPicker';
 import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { cn, isRideExpired } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { rideService } from '@/lib/firestore';
 import { Ride, Location } from '@/types';
@@ -69,6 +69,12 @@ const FindRidesPage = () => {
       driverId: ride.driverId
     });
     
+    // Skip expired rides
+    if (isRideExpired(ride.departureTime) || ride.status === 'EXPIRED') {
+      console.log('❌ FindRidesPage: Filtered out - ride is expired');
+      return false;
+    }
+    
     // Filter by from location
     if (fromLocation && ride.startLocation.name !== fromLocation.name) {
       console.log('❌ FindRidesPage: Filtered out by fromLocation');
@@ -111,10 +117,17 @@ const FindRidesPage = () => {
   console.log('🎯 FindRidesPage: Final availableRides count:', availableRides.length);
 
   const RideCard = ({ ride }: { ride: Ride }) => {
+    const isExpired = isRideExpired(ride.departureTime) || ride.status === 'EXPIRED';
+    
     return (
       <Card
-        className="cursor-pointer hover:shadow-md transition-shadow"
-        onClick={() => navigate(`/ride/${ride.id}`)}
+        className={cn(
+          "transition-shadow",
+          isExpired 
+            ? "opacity-60 cursor-not-allowed bg-muted/50" 
+            : "cursor-pointer hover:shadow-md"
+        )}
+        onClick={() => !isExpired && navigate(`/ride/${ride.id}`)}
       >
         <CardContent className="p-3 md:p-4">
           <div className="space-y-2 md:space-y-3">
@@ -126,13 +139,20 @@ const FindRidesPage = () => {
                   {format(ride.departureTime, 'EEE, MMM d • h:mm a')}
                 </span>
               </div>
-              <span className={`text-xs px-2 py-1 rounded-full ${
-                ride.direction === 'to_office'
-                  ? 'bg-primary/10 text-primary'
-                  : 'bg-accent/10 text-accent-foreground'
-              }`}>
-                {ride.direction === 'to_office' ? 'To Office' : 'From Office'}
-              </span>
+              <div className="flex gap-2">
+                <span className={`text-xs px-2 py-1 rounded-full ${
+                  ride.direction === 'to_office'
+                    ? 'bg-primary/10 text-primary'
+                    : 'bg-accent/10 text-accent-foreground'
+                }`}>
+                  {ride.direction === 'to_office' ? 'To Office' : 'From Office'}
+                </span>
+                {isExpired && (
+                  <span className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-800 border border-red-200">
+                    Expired
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Route */}

@@ -18,6 +18,7 @@ import {
   type Unsubscribe
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { isRideExpired } from './utils';
 import {
   User,
   Driver,
@@ -349,8 +350,12 @@ export const rideService = {
       console.log('📊 Firestore: Query result:', rides);
       console.log('🔢 Firestore: Total rides found:', rides.length);
       
+      // Filter out expired rides
+      const validRides = rides.filter(ride => !isRideExpired(ride.departureTime));
+      console.log('⏰ Firestore: After filtering expired rides:', validRides.length);
+      
       // Log details of each ride found
-      rides.forEach((ride, index) => {
+      validRides.forEach((ride, index) => {
         console.log(`🚗 Firestore: Ride ${index + 1}:`, {
           id: ride.id,
           status: ride.status,
@@ -362,7 +367,7 @@ export const rideService = {
         });
       });
       
-      return rides;
+      return validRides;
     } catch (error) {
       console.error('❌ Firestore: Error in getAvailableRides:', error);
       throw error;
@@ -433,6 +438,33 @@ export const rideService = {
 
   async getAllRides(): Promise<Ride[]> {
     return FirestoreService.getAllDocuments<Ride>(COLLECTIONS.RIDES);
+  },
+
+  async updateExpiredRides(): Promise<void> {
+    console.log('⏰ Firestore: Checking for expired rides...');
+    try {
+      // Get all available rides
+      const availableRides = await FirestoreService.queryDocuments<Ride>(
+        COLLECTIONS.RIDES,
+        [{ field: 'status', operator: '==', value: 'AVAILABLE' }]
+      );
+
+      console.log(`📊 Firestore: Found ${availableRides.length} available rides to check for expiration`);
+
+      let expiredCount = 0;
+      for (const ride of availableRides) {
+        if (isRideExpired(ride.departureTime)) {
+          console.log(`⏰ Firestore: Marking ride ${ride.id} as EXPIRED (departure: ${ride.departureTime})`);
+          await this.updateRide(ride.id, { status: 'EXPIRED' });
+          expiredCount++;
+        }
+      }
+
+      console.log(`✅ Firestore: Marked ${expiredCount} rides as EXPIRED`);
+    } catch (error) {
+      console.error('❌ Firestore: Error updating expired rides:', error);
+      throw error;
+    }
   },
 
   async recalculateAvailableSeats(rideId: string): Promise<void> {

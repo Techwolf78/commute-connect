@@ -42,7 +42,7 @@ export interface Vehicle {
 }
 
 // Ride Types
-export type RideStatus = 'AVAILABLE' | 'BOOKED' | 'DRIVER_REACHED_PICKUP' | 'PASSENGER_ARRIVED' | 'TRIP_STARTED' | 'DESTINATION_REACHED' | 'COMPLETED';
+export type RideStatus = 'AVAILABLE' | 'BOOKED' | 'DRIVER_REACHED_PICKUP' | 'PASSENGER_ARRIVED' | 'TRIP_STARTED' | 'DESTINATION_REACHED' | 'COMPLETED' | 'EXPIRED';
 export type RideDirection = 'to_office' | 'from_office';
 
 export interface Ride {

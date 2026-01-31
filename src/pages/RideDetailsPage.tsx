@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
+import { isRideExpired } from '@/lib/utils';
 import { Booking } from '@/types';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { rideService, userService, driverService, vehicleService, bookingService } from '@/lib/firestore';
@@ -227,13 +228,20 @@ const RideDetailsPage = () => {
                 <Users className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm">{ride.availableSeats} seats available</span>
               </div>
-              <span className={`text-xs px-2 py-1 rounded-full ${
-                ride.direction === 'to_office' 
-                  ? 'bg-primary/10 text-primary' 
-                  : 'bg-muted text-muted-foreground'
-              }`}>
-                {ride.direction === 'to_office' ? 'To Office' : 'From Office'}
-              </span>
+              <div className="flex gap-2">
+                <span className={`text-xs px-2 py-1 rounded-full ${
+                  ride.direction === 'to_office' 
+                    ? 'bg-primary/10 text-primary' 
+                    : 'bg-muted text-muted-foreground'
+                }`}>
+                  {ride.direction === 'to_office' ? 'To Office' : 'From Office'}
+                </span>
+                {(isRideExpired(ride.departureTime) || ride.status === 'EXPIRED') && (
+                  <span className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-800 border border-red-200">
+                    Expired
+                  </span>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -336,13 +344,15 @@ const RideDetailsPage = () => {
             <Button 
               className="w-full h-12 text-base"
               onClick={handleBookRide}
-              disabled={isBooking}
+              disabled={isBooking || isRideExpired(ride.departureTime) || ride.status === 'EXPIRED'}
             >
               {isBooking ? (
                 <span className="flex items-center gap-2">
                   <span className="animate-spin rounded-full h-4 w-4 border-2 border-primary-foreground border-t-transparent" />
                   Booking...
                 </span>
+              ) : isRideExpired(ride.departureTime) || ride.status === 'EXPIRED' ? (
+                'Ride Expired'
               ) : (
                 `Book Ride (Pay ₹${totalCost} to driver)`
               )}
