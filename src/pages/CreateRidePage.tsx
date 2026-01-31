@@ -16,7 +16,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import LocationPicker from '@/components/LocationPicker';
 import { format, setHours, setMinutes } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { cn, calculateETA } from '@/lib/utils';
 import { RideDirection, Location } from '@/types';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { rideService, driverService, vehicleService, userService } from '@/lib/firestore';
@@ -174,6 +174,18 @@ const CreateRidePage = () => {
         return;
       }
 
+      // Calculate ETA using Google Maps
+      console.log('🗺️ CreateRidePage: Calculating ETA for route...');
+      const etaResult = await calculateETA(
+        { lat: startLocation.latitude, lng: startLocation.longitude },
+        { lat: endLocation.latitude, lng: endLocation.longitude },
+        departureTime
+      );
+
+      const estimatedArrivalTime = etaResult ? format(etaResult.arrivalTime, 'h:mm a') : undefined;
+
+      console.log('📍 CreateRidePage: ETA calculated:', estimatedArrivalTime);
+
       await rideService.createRide({
         driverId: user!.id,
         vehicleId: vehicle.id,
@@ -185,6 +197,7 @@ const CreateRidePage = () => {
         totalSeats: parseInt(availableSeats),
         costPerSeat: parseInt(costPerSeat),
         status: 'AVAILABLE',
+        estimatedArrivalTime,
         createdAt: new Date(),
       });
 

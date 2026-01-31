@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { rideService, bookingService } from '@/lib/firestore';
 import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
+import { cn, shouldAutoCompleteRide } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Clock, MapPin, ArrowRight, Users, Car, Calendar, Search, Plus, ChevronRight, CheckCircle2 } from 'lucide-react';
@@ -72,208 +73,72 @@ const RideCard = ({ ride, onClick }: { ride: Ride; onClick: () => void }) => {
 
 // Ride Execution Components
 const TodaysRideCard = ({ ride, booking, isDriver }: { ride: Ride; booking?: Booking; isDriver: boolean }) => {
-  const queryClient = useQueryClient();
-  const [showPassengerModal, setShowPassengerModal] = useState(false);
-
-  // Driver action mutations
-  const driverReachedPickupMutation = useMutation({
-    mutationFn: () => rideService.driverReachedPickup(ride.id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['todays-ride'] });
-    },
-  });
-
-  const passengerArrivedMutation = useMutation({
-    mutationFn: () => rideService.passengerArrived(ride.id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['todays-ride'] });
-      setShowPassengerModal(true);
-    },
-  });
-
-  const startTripMutation = useMutation({
-    mutationFn: () => {
-      // Calculate ETA once (static)
-      const now = new Date();
-      const eta = new Date(now.getTime() + 50 * 60 * 1000); // 50 minutes from now
-      const etaString = format(eta, 'HH:mm');
-      return rideService.startTrip(ride.id, etaString);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['todays-ride'] });
-    },
-  });
-
-  const arrivedAtDestinationMutation = useMutation({
-    mutationFn: () => rideService.arrivedAtDestination(ride.id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['todays-ride'] });
-    },
-  });
-
-  const paymentCollectedMutation = useMutation({
-    mutationFn: () => rideService.paymentCollected(ride.id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['todays-ride'] });
-    },
-  });
-
-  const handlePassengerConfirm = () => {
-    setShowPassengerModal(false);
-  };
-
   const getStatusMessage = () => {
     switch (ride.status) {
       case 'AVAILABLE':
         return 'Your ride is available for booking. Waiting for passengers.';
       case 'BOOKED':
         return isDriver
-          ? 'Your ride is booked. Please reach the pickup location.'
-          : 'Your ride is booked. Please wait for the driver.';
-      case 'DRIVER_REACHED_PICKUP':
-        return isDriver
-          ? 'You have reached the pickup location. Waiting for passenger.'
-          : 'Your ride is here at the pickup point. Please reach the pickup location.';
-      case 'PASSENGER_ARRIVED':
-        return isDriver
-          ? 'Passenger has arrived. Ready to start the trip.'
-          : 'Your ride is starting.';
-      case 'TRIP_STARTED':
-        return isDriver
-          ? `Trip started. Estimated arrival: ${ride.estimatedArrivalTime}`
-          : `Trip started. Estimated arrival: ${ride.estimatedArrivalTime}`;
-      case 'DESTINATION_REACHED':
-        return isDriver
-          ? 'Arrived at destination. Collect payment from passenger.'
-          : 'Ride completed. Please pay the driver.';
+          ? 'Your ride is booked. Please reach the pickup location by departure time.'
+          : 'Your ride is booked. Please be ready at the pickup location.';
       case 'COMPLETED':
         return 'Ride completed successfully!';
+      case 'EXPIRED':
+        return 'This ride has expired.';
       default:
         return 'Ride in progress';
     }
   };
 
-  const getActionButton = () => {
-    if (!isDriver) return null;
-
-    switch (ride.status) {
-      case 'BOOKED':
-        return (
-          <Button
-            className="w-full"
-            onClick={() => driverReachedPickupMutation.mutate()}
-            disabled={driverReachedPickupMutation.isPending}
-          >
-            {driverReachedPickupMutation.isPending ? 'Updating...' : 'I HAVE REACHED PICKUP LOCATION'}
-          </Button>
-        );
-      case 'DRIVER_REACHED_PICKUP':
-        return (
-          <Button
-            className="w-full"
-            onClick={() => passengerArrivedMutation.mutate()}
-            disabled={passengerArrivedMutation.isPending}
-          >
-            {passengerArrivedMutation.isPending ? 'Updating...' : 'PASSENGER ARRIVED'}
-          </Button>
-        );
-      case 'PASSENGER_ARRIVED':
-        return (
-          <Button
-            className="w-full bg-green-600 hover:bg-green-700"
-            onClick={() => startTripMutation.mutate()}
-            disabled={startTripMutation.isPending}
-          >
-            {startTripMutation.isPending ? 'Starting...' : 'START TRIP'}
-          </Button>
-        );
-      case 'TRIP_STARTED':
-        return (
-          <Button
-            className="w-full bg-blue-600 hover:bg-blue-700"
-            onClick={() => arrivedAtDestinationMutation.mutate()}
-            disabled={arrivedAtDestinationMutation.isPending}
-          >
-            {arrivedAtDestinationMutation.isPending ? 'Updating...' : 'ARRIVED AT DESTINATION'}
-          </Button>
-        );
-      case 'DESTINATION_REACHED':
-        return (
-          <Button
-            className="w-full bg-purple-600 hover:bg-purple-700"
-            onClick={() => paymentCollectedMutation.mutate()}
-            disabled={paymentCollectedMutation.isPending}
-          >
-            {paymentCollectedMutation.isPending ? 'Completing...' : 'PAYMENT COLLECTED'}
-          </Button>
-        );
-      default:
-        return null;
-    }
-  };
-
   return (
-    <>
-      <Card className="border-2 border-primary/20 bg-primary/5">
-        <CardContent className="p-4">
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Car className="h-5 w-5 text-primary" />
-              <h3 className="font-semibold text-lg">
-                {isDriver ? "Today's Ride" : "Your Ride Today"}
-              </h3>
-            </div>
+    <Card className="border-2 border-primary/20 bg-primary/5">
+      <CardContent className="p-4">
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Car className="h-5 w-5 text-primary" />
+            <h3 className="font-semibold text-lg">
+              {isDriver ? "Today's Ride" : "Your Ride Today"}
+            </h3>
+          </div>
 
-            <div className="flex items-center gap-2 text-sm">
-              <MapPin className="h-4 w-4 text-primary" />
-              <span>{ride.startLocation.name}</span>
-              <ArrowRight className="h-4 w-4 text-muted-foreground" />
-              <span>{ride.endLocation.name}</span>
-            </div>
+          <div className="flex items-center gap-2 text-sm">
+            <MapPin className="h-4 w-4 text-primary" />
+            <span>{ride.startLocation.name}</span>
+            <ArrowRight className="h-4 w-4 text-muted-foreground" />
+            <span>{ride.endLocation.name}</span>
+          </div>
 
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Clock className="h-4 w-4" />
-              <span>{format(getDateFromTimestamp(ride.departureTime), 'h:mm a')}</span>
-            </div>
-
-            <p className="text-sm font-medium">{getStatusMessage()}</p>
-
-            {ride.status === 'TRIP_STARTED' && ride.estimatedArrivalTime && (
-              <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
-                <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                  Estimated arrival: {ride.estimatedArrivalTime}
-                </p>
-              </div>
-            )}
-
-            {getActionButton()}
-
-            {!isDriver && ride.status === 'DESTINATION_REACHED' && (
-              <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg">
-                <p className="text-sm font-medium text-green-800 dark:text-green-200">
-                  Ride completed. Please pay the driver directly.
-                </p>
-              </div>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Clock className="h-4 w-4" />
+            <span>{format(getDateFromTimestamp(ride.departureTime), 'h:mm a')}</span>
+            {ride.estimatedArrivalTime && (
+              <>
+                <ArrowRight className="h-4 w-4" />
+                <span>ETA: {ride.estimatedArrivalTime}</span>
+              </>
             )}
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Passenger Arrival Confirmation Modal */}
-      <Dialog open={showPassengerModal} onOpenChange={setShowPassengerModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Your ride is starting 🚗</DialogTitle>
-            <DialogDescription>
-              Please be seated. The trip is about to begin.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex justify-end">
-            <Button onClick={handlePassengerConfirm}>OK</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
+          <p className="text-sm font-medium">{getStatusMessage()}</p>
+
+          {ride.status === 'BOOKED' && ride.estimatedArrivalTime && (
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+              <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                Estimated arrival: {ride.estimatedArrivalTime}
+              </p>
+            </div>
+          )}
+
+          {ride.status === 'COMPLETED' && (
+            <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg">
+              <p className="text-sm font-medium text-green-800 dark:text-green-200">
+                ✅ Ride completed successfully!
+              </p>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 
@@ -308,6 +173,65 @@ const DashboardPage = () => {
 
     return () => clearInterval(interval);
   }, [queryClient]);
+
+  // Auto-complete rides based on ETA
+  useEffect(() => {
+    const autoCompleteRides = async () => {
+      try {
+        console.log('🚗 DashboardPage: Checking for rides to auto-complete...');
+
+        // Get today's ride for the current user
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        if (isDriver) {
+          // For drivers: check if they have a booked ride today that should be auto-completed
+          const rides = await rideService.getRidesByDriver(user.id);
+          const todaysRides = rides.filter(ride => {
+            const rideDate = getDateFromTimestamp(ride.departureTime);
+            return rideDate >= today && rideDate < tomorrow && ride.status === 'BOOKED';
+          });
+
+          for (const ride of todaysRides) {
+            if (shouldAutoCompleteRide(ride.departureTime, ride.estimatedArrivalTime)) {
+              console.log(`✅ DashboardPage: Auto-completing ride ${ride.id}`);
+              await rideService.arrivedAtDestination(ride.id);
+              await rideService.paymentCollected(ride.id);
+              queryClient.invalidateQueries({ queryKey: ['todays-ride'] });
+            }
+          }
+        } else {
+          // For passengers: check if they have bookings that should be auto-completed
+          const bookings = await bookingService.getBookingsByPassenger(user.id);
+          const todaysBookings = bookings.filter(booking => booking.status === 'confirmed');
+
+          for (const booking of todaysBookings) {
+            try {
+              const ride = await rideService.getRide(booking.rideId);
+              if (ride && shouldAutoCompleteRide(ride.departureTime, ride.estimatedArrivalTime)) {
+                console.log(`✅ DashboardPage: Auto-completing booking ${booking.id} for ride ${ride.id}`);
+                // Mark booking as completed
+                await bookingService.updateBooking(booking.id, { status: 'completed' });
+                queryClient.invalidateQueries({ queryKey: ['user-bookings'] });
+              }
+            } catch (error) {
+              console.error('Error auto-completing booking:', booking.id, error);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('❌ DashboardPage: Error auto-completing rides:', error);
+      }
+    };
+
+    // Check immediately and then every minute
+    autoCompleteRides();
+    const interval = setInterval(autoCompleteRides, 60 * 1000); // Check every minute
+
+    return () => clearInterval(interval);
+  }, [user, isDriver, queryClient]);
 
   // Fetch upcoming rides (available for booking)
   const { data: upcomingRidesData, isLoading: ridesLoading } = useQuery({
@@ -490,18 +414,17 @@ const DashboardPage = () => {
       tomorrow.setDate(tomorrow.getDate() + 1);
 
       if (isDriver) {
-        // For drivers: check if they have a ride today that's in execution
+        // For drivers: check if they have a booked ride today
         const rides = Array.isArray(await rideService.getRidesByDriver(user.id)) 
           ? await rideService.getRidesByDriver(user.id) 
           : [];
         const todaysRides = rides.filter(ride => {
           const rideDate = new Date(getDateFromTimestamp(ride.departureTime));
-          return rideDate >= today && rideDate < tomorrow &&
-                 ['BOOKED', 'DRIVER_REACHED_PICKUP', 'PASSENGER_ARRIVED', 'TRIP_STARTED', 'DESTINATION_REACHED'].includes(ride.status);
+          return rideDate >= today && rideDate < tomorrow && ride.status === 'BOOKED';
         });
-        return todaysRides[0] || null; // Return the first active ride
+        return todaysRides[0] || null; // Return the first booked ride
       } else {
-        // For passengers: check if they have a booking for today
+        // For passengers: check if they have a confirmed booking for today
         const bookings = Array.isArray(await bookingService.getBookingsByPassenger(user.id)) 
           ? await bookingService.getBookingsByPassenger(user.id) 
           : [];
@@ -512,8 +435,7 @@ const DashboardPage = () => {
             const ride = await rideService.getRide(booking.rideId);
             if (ride) {
               const rideDate = new Date(getDateFromTimestamp(ride.departureTime));
-              if (rideDate >= today && rideDate < tomorrow &&
-                  ['BOOKED', 'DRIVER_REACHED_PICKUP', 'PASSENGER_ARRIVED', 'TRIP_STARTED', 'DESTINATION_REACHED'].includes(ride.status)) {
+              if (rideDate >= today && rideDate < tomorrow && ride.status === 'BOOKED') {
                 return { ride, booking };
               }
             }
