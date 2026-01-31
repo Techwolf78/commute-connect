@@ -36,7 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     console.log('🔄 AuthContext: Setting up auth state listener...');
-    if (!auth || typeof auth.onAuthStateChanged !== 'function') {
+    if (!auth || typeof auth.app === 'undefined') {
       console.error('❌ AuthContext: Firebase auth not properly initialized');
       console.error('🔍 Auth object:', auth);
       console.error('🔍 Auth methods:', typeof auth?.onAuthStateChanged);
@@ -103,7 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    if (!auth || typeof auth.signInWithEmailAndPassword !== 'function') {
+    if (!auth || typeof auth.app === 'undefined') {
       throw new Error('Firebase auth not initialized');
     }
     try {
@@ -115,7 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signUp = async (email: string, password: string, name: string) => {
-    if (!auth || typeof auth.createUserWithEmailAndPassword !== 'function') {
+    if (!auth || typeof auth.app === 'undefined') {
       throw new Error('Firebase auth not initialized');
     }
     try {
@@ -147,11 +147,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log('🔐 signInWithGoogle: Starting Google sign-in process...');
     console.log('🔍 signInWithGoogle: Checking auth object:', {
       auth: !!auth,
-      signInWithPopup: typeof auth?.signInWithPopup,
-      available: !!(auth && typeof auth.signInWithPopup === 'function')
+      isDummyObject: !auth || typeof auth.app === 'undefined',
+      authType: typeof auth
     });
 
-    if (!auth || typeof auth.signInWithPopup !== 'function') {
+    if (!auth || typeof auth.app === 'undefined') {
       const errorMsg = 'Firebase auth not initialized. Please check that all Firebase environment variables are set correctly in Vercel.';
       console.error('❌ signInWithGoogle:', errorMsg);
       console.error('🔍 signInWithGoogle: Auth object details:', auth);
@@ -179,7 +179,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
-    if (!auth || typeof auth.signOut !== 'function') {
+    if (!auth || typeof auth.app === 'undefined') {
       throw new Error('Firebase auth not initialized');
     }
     try {
