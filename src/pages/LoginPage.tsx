@@ -38,16 +38,7 @@ const LoginPage = () => {
         name: error.name,
         code: error.code
       });
-      toast({
-        title: 'Sign in failed',
-        description: error.message || 'An error occurred during sign in.',
-        variant: 'destructive',
-      });
-    } finally {
-      console.log('🔄 LoginPage: Setting loading state to false');
-      setIsLoading(false);
-    }
-  };
+
       let errorMessage = 'Failed to sign in with Google. Please try again.';
 
       if (error.code === 'auth/popup-closed-by-user') {
@@ -57,11 +48,12 @@ const LoginPage = () => {
       }
 
       toast({
+        title: 'Sign in failed',
+        description: error.message || errorMessage,
         variant: 'destructive',
-        title: 'Google Sign In Failed',
-        description: errorMessage,
       });
     } finally {
+      console.log('🔄 LoginPage: Setting loading state to false');
       setIsLoading(false);
     }
   };

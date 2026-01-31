@@ -44,14 +44,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return () => {};
     }
 
-    console.log('✅ AuthContext: Firebase auth is available, setting up listener...');
-    // Listen to authentication state changes
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      console.log('👤 AuthContext: Auth state changed:', firebaseUser ? 'User logged in' : 'User logged out');
-      try {
-        setFirebaseUser(firebaseUser);
+    try {
+      console.log('✅ AuthContext: Firebase auth is available, setting up listener...');
+      // Listen to authentication state changes
+      const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        console.log('👤 AuthContext: Auth state changed:', firebaseUser ? 'User logged in' : 'User logged out');
+        try {
+          setFirebaseUser(firebaseUser);
 
-        if (firebaseUser) {
+          if (firebaseUser) {
             try {
               // Get user profile from Firestore
               const userProfile = await userService.getUser(firebaseUser.uid);
