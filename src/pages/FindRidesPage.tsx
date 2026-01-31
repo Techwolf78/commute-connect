@@ -35,7 +35,7 @@ const FindRidesPage = () => {
   };
 
   // Fetch available rides with filters
-  const { data: allRides = [], isLoading, error } = useQuery({
+  const { data: allRidesData, isLoading, error } = useQuery({
     queryKey: ['available-rides'],
     queryFn: async () => {
       console.log('🔍 FindRidesPage: Starting to fetch available rides...');
@@ -53,6 +53,8 @@ const FindRidesPage = () => {
     },
     enabled: !!user,
   });
+
+  const allRides = allRidesData ?? [];
 
   // Filter available rides based on search criteria
   const availableRides = allRides.filter(ride => {

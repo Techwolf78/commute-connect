@@ -33,14 +33,16 @@ const MyRidesPage = () => {
   const [cancelRideId, setCancelRideId] = useState<string | null>(null);
   
   // Fetch user's rides (as driver)
-  const { data: rides = [], isLoading: ridesLoading } = useQuery({
+  const { data: ridesData, isLoading: ridesLoading } = useQuery({
     queryKey: ['driver-rides', user?.id],
     queryFn: () => rideService.getRidesByDriver(user!.id),
     enabled: !!user,
   });
 
+  const rides = ridesData ?? [];
+
   // Fetch bookings for user's rides
-  const { data: bookings = [], isLoading: bookingsLoading } = useQuery({
+  const { data: bookingsData, isLoading: bookingsLoading } = useQuery({
     queryKey: ['ride-bookings', rides.map(r => r.id)],
     queryFn: async () => {
       const allBookings = [];
@@ -50,8 +52,10 @@ const MyRidesPage = () => {
       }
       return allBookings;
     },
-    enabled: rides.length > 0,
+    enabled: !!user && rides.length > 0,
   });
+
+  const bookings = bookingsData ?? [];
 
   // Cancel ride mutation
   const cancelRideMutation = useMutation({
@@ -95,7 +99,7 @@ const MyRidesPage = () => {
     );
   }
 
-  const myRides = rides
+  const myRides = (rides || [])
     .sort((a, b) => new Date(b.departureTime).getTime() - new Date(a.departureTime).getTime());
 
   const scheduledRides = myRides.filter(r =>
@@ -111,7 +115,7 @@ const MyRidesPage = () => {
   );
 
   const getBookingsForRide = (rideId: string) => {
-    return bookings.filter(b => 
+    return (bookings || []).filter(b => 
       b.rideId === rideId && b.status === 'confirmed'
     );
   };

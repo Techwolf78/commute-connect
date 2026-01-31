@@ -249,10 +249,11 @@ const TodaysRideCard = ({ ride, booking, isDriver }: { ride: Ride; booking?: Boo
             {getActionButton()}
 
             {!isDriver && ride.status === 'DESTINATION_REACHED' && (
-              <Button className="w-full" variant="outline">
-                <CheckCircle2 className="h-4 w-4 mr-2" />
-                Payment Done
-              </Button>
+              <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg">
+                <p className="text-sm font-medium text-green-800 dark:text-green-200">
+                  Ride completed. Please pay the driver directly.
+                </p>
+              </div>
             )}
           </div>
         </CardContent>
@@ -529,7 +530,7 @@ const DashboardPage = () => {
                 </span>
               </div>
               <p className="text-xl md:text-2xl font-bold mt-1">
-                {isDriver ? (driverAvailableLoading ? '...' : driverAvailableRides.length) : (ridesLoading ? '...' : upcomingRides.length)}
+                {isDriver ? (driverAvailableLoading ? '...' : driverAvailableRides?.length || 0) : (ridesLoading ? '...' : upcomingRides?.length || 0)}
               </p>
             </div>
             <div className="flex-1 bg-primary-foreground/10 rounded-xl p-3 md:p-4">
@@ -540,7 +541,7 @@ const DashboardPage = () => {
                 </span>
               </div>
               <p className="text-xl md:text-2xl font-bold mt-1">
-                {isDriver ? (driverBookedLoading ? '...' : driverBookedRides.length) : (bookingsLoading ? '...' : userBookingsData.upcoming.length + userBookingsData.completed.length)}
+                {isDriver ? (driverBookedLoading ? '...' : driverBookedRides?.length || 0) : (bookingsLoading ? '...' : (userBookingsData?.upcoming?.length || 0) + (userBookingsData?.completed?.length || 0))}
               </p>
             </div>
           </div>
@@ -615,7 +616,7 @@ const DashboardPage = () => {
         )}
 
         {/* Your Upcoming Bookings */}
-        {!bookingsLoading && userBookingsData.upcoming.length > 0 && (
+        {!bookingsLoading && (userBookingsData?.upcoming?.length || 0) > 0 && (
           <section>
             <div className="flex items-center justify-between mb-2 md:mb-3">
               <h2 className="text-base md:text-lg font-semibold">Your Upcoming Rides</h2>
@@ -630,8 +631,8 @@ const DashboardPage = () => {
               </Button>
             </div>
             <div className="space-y-3">
-              {userBookingsData.upcoming
-                .filter(item => item && item.booking && item.ride)
+              {userBookingsData?.upcoming
+                ?.filter(item => item && item.booking && item.ride)
                 .map((item) => (
                 <BookingCard
                   key={item.booking.id}
@@ -644,7 +645,7 @@ const DashboardPage = () => {
         )}
 
         {/* Your Completed Rides */}
-        {!bookingsLoading && userBookingsData.completed.length > 0 && (
+        {!bookingsLoading && (userBookingsData?.completed?.length || 0) > 0 && (
           <section>
             <div className="flex items-center justify-between mb-2 md:mb-3">
               <h2 className="text-base md:text-lg font-semibold">Your Completed Rides</h2>
@@ -659,8 +660,8 @@ const DashboardPage = () => {
               </Button>
             </div>
             <div className="space-y-3">
-              {userBookingsData.completed
-                .filter(item => item && item.booking && item.ride)
+              {userBookingsData?.completed
+                ?.filter(item => item && item.booking && item.ride)
                 .map((item) => (
                 <BookingCard
                   key={item.booking.id}
@@ -698,7 +699,7 @@ const DashboardPage = () => {
                   </Card>
                 ))}
               </div>
-            ) : upcomingRides.length > 0 ? (
+            ) : upcomingRides?.length > 0 ? (
               <div className="space-y-3">
                 {upcomingRides.map((ride) => (
                   <RideCard key={ride.id} ride={ride} onClick={() => navigate(`/ride/${ride.id}`)} />
@@ -723,7 +724,7 @@ const DashboardPage = () => {
         )}
 
         {/* Driver Available Rides */}
-        {isDriver && driverAvailableRides.length > 0 && (
+        {isDriver && (driverAvailableRides?.length || 0) > 0 && (
           <section>
             <div className="flex items-center justify-between mb-2 md:mb-3">
               <h2 className="text-base md:text-lg font-semibold">Available Rides</h2>
@@ -772,7 +773,7 @@ const DashboardPage = () => {
         )}
 
         {/* Driver Booked Rides */}
-        {isDriver && driverBookedRides.length > 0 && (
+        {isDriver && (driverBookedRides?.length || 0) > 0 && (
           <section>
             <div className="flex items-center justify-between mb-2 md:mb-3">
               <h2 className="text-base md:text-lg font-semibold">Booked Rides</h2>

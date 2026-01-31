@@ -45,11 +45,13 @@ const MyBookingsPage = () => {
   const [comment, setComment] = useState('');
   
   // Fetch user's bookings
-  const { data: bookings = [], isLoading: bookingsLoading } = useQuery({
+  const { data: bookingsData, isLoading: bookingsLoading } = useQuery({
     queryKey: ['user-bookings', user?.id],
     queryFn: () => bookingService.getBookingsByPassenger(user!.id),
     enabled: !!user,
   });
+
+  const bookings = bookingsData ?? [];
 
   // Fetch all rides (needed for booking details)
   // const { data: rides = [], isLoading: ridesLoading } = useQuery({
@@ -107,7 +109,7 @@ const MyBookingsPage = () => {
     );
   }
 
-  const userBookings = bookings
+  const userBookings = (bookings || [])
     .filter(booking => booking.passengerId === user?.id)
     .sort((a, b) => new Date(b.bookedAt).getTime() - new Date(a.bookedAt).getTime());
 

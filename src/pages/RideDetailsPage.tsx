@@ -63,11 +63,13 @@ const RideDetailsPage = () => {
   });
 
   // Fetch existing bookings for this ride
-  const { data: existingBookings = [] } = useQuery({
+  const { data: existingBookingsData } = useQuery({
     queryKey: ['ride-bookings', id],
     queryFn: () => bookingService.getBookingsByRide(id!),
     enabled: !!id,
   });
+
+  const existingBookings = existingBookingsData ?? [];
 
   // Create booking mutation
   const createBookingMutation = useMutation({

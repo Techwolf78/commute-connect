@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import MainLayout from "@/components/MainLayout";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 // Auth Pages
 import LoginPage from "./pages/LoginPage";
@@ -27,53 +28,55 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <AuthProvider>
-        <BrowserRouter future={{
-          v7_startTransition: true,
-          v7_relativeSplatPath: true,
-        }}>
-          <Routes>
-            {/* Public Routes */}
-            <Route path="/login" element={<LoginPage />} />
-            
-            {/* Profile Completion (auth required, profile not required) */}
-            <Route path="/complete-profile" element={
-              <ProtectedRoute requireProfileComplete={false}>
-                <CompleteProfilePage />
-              </ProtectedRoute>
-            } />
-            
-            {/* Protected Routes with Main Layout */}
-            <Route element={
-              <ProtectedRoute>
-                <MainLayout />
-              </ProtectedRoute>
-            }>
-              <Route path="/dashboard" element={<DashboardPage />} />
-              <Route path="/find-rides" element={<FindRidesPage />} />
-              <Route path="/ride/:id" element={<RideDetailsPage />} />
-              <Route path="/my-bookings" element={<MyBookingsPage />} />
-              <Route path="/my-rides" element={<MyRidesPage />} />
-              <Route path="/create-ride" element={<CreateRidePage />} />
-              <Route path="/profile" element={<ProfilePage />} />
-              <Route path="/edit-profile" element={<EditProfilePage />} />
-              <Route path="/become-driver" element={<BecomeDriverPage />} />
-            </Route>
-            
-            {/* Redirects */}
-            <Route path="/" element={<Index />} />
-            
-            {/* 404 */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </AuthProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <AuthProvider>
+          <BrowserRouter future={{
+            v7_startTransition: true,
+            v7_relativeSplatPath: true,
+          }}>
+            <Routes>
+              {/* Public Routes */}
+              <Route path="/login" element={<LoginPage />} />
+              
+              {/* Profile Completion (auth required, profile not required) */}
+              <Route path="/complete-profile" element={
+                <ProtectedRoute requireProfileComplete={false}>
+                  <CompleteProfilePage />
+                </ProtectedRoute>
+              } />
+              
+              {/* Protected Routes with Main Layout */}
+              <Route element={
+                <ProtectedRoute>
+                  <MainLayout />
+                </ProtectedRoute>
+              }>
+                <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/find-rides" element={<FindRidesPage />} />
+                <Route path="/ride/:id" element={<RideDetailsPage />} />
+                <Route path="/my-bookings" element={<MyBookingsPage />} />
+                <Route path="/my-rides" element={<MyRidesPage />} />
+                <Route path="/create-ride" element={<CreateRidePage />} />
+                <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/edit-profile" element={<EditProfilePage />} />
+                <Route path="/become-driver" element={<BecomeDriverPage />} />
+              </Route>
+              
+              {/* Redirects */}
+              <Route path="/" element={<Index />} />
+              
+              {/* 404 */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </AuthProvider>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;
