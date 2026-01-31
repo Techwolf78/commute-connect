@@ -334,7 +334,7 @@ const DashboardPage = () => {
     enabled: !!user && !isDriver,
   });
 
-  const upcomingRides = upcomingRidesData ?? [];
+  const upcomingRides = Array.isArray(upcomingRidesData) ? upcomingRidesData : [];
 
   // Fetch user's bookings (upcoming and completed)
   const { data, isLoading: bookingsLoading } = useQuery<UserBookingsData>({
@@ -342,7 +342,9 @@ const DashboardPage = () => {
     queryFn: async (): Promise<UserBookingsData> => {
       if (!user) return { upcoming: [], completed: [] };
       console.log('🔍 DashboardPage: Fetching user bookings for:', user.id);
-      const bookings = await bookingService.getBookingsByPassenger(user.id);
+      const bookings = Array.isArray(await bookingService.getBookingsByPassenger(user.id)) 
+        ? await bookingService.getBookingsByPassenger(user.id) 
+        : [];
       console.log('📊 DashboardPage: Raw bookings from server:', bookings);
       const confirmedBookings = bookings.filter(booking =>
         booking.status === 'confirmed'
@@ -382,8 +384,8 @@ const DashboardPage = () => {
         })
       );
 
-      const confirmedFiltered = confirmedBookingsWithRides.filter(Boolean);
-      const completedFiltered = completedBookingsWithRides.filter(Boolean);
+      const confirmedFiltered = Array.isArray(confirmedBookingsWithRides) ? confirmedBookingsWithRides.filter(Boolean) : [];
+      const completedFiltered = Array.isArray(completedBookingsWithRides) ? completedBookingsWithRides.filter(Boolean) : [];
       console.log('🎯 DashboardPage: Final confirmed bookings:', confirmedFiltered);
       console.log('🎯 DashboardPage: Final completed bookings:', completedFiltered);
 
@@ -402,7 +404,9 @@ const DashboardPage = () => {
     queryKey: ['driver-rides', user?.id],
     queryFn: async () => {
       if (!user || !isDriver) return [];
-      const rides = await rideService.getRidesByDriver(user.id);
+      const rides = Array.isArray(await rideService.getRidesByDriver(user.id)) 
+        ? await rideService.getRidesByDriver(user.id) 
+        : [];
       return rides.filter(ride =>
         new Date(getDateFromTimestamp(ride.departureTime)) > new Date()
       ).slice(0, 3);
@@ -410,14 +414,16 @@ const DashboardPage = () => {
     enabled: !!user && isDriver,
   });
 
-  const driverRides = driverRidesData ?? [];
+  const driverRides = Array.isArray(driverRidesData) ? driverRidesData : [];
 
   // Fetch driver's available rides (for stats)
   const { data: driverAvailableRidesData, isLoading: driverAvailableLoading } = useQuery({
     queryKey: ['driver-available-rides', user?.id],
     queryFn: async () => {
       if (!user || !isDriver) return [];
-      const rides = await rideService.getRidesByDriver(user.id);
+      const rides = Array.isArray(await rideService.getRidesByDriver(user.id)) 
+        ? await rideService.getRidesByDriver(user.id) 
+        : [];
       return rides.filter(ride =>
         new Date(getDateFromTimestamp(ride.departureTime)) > new Date() &&
         ride.status === 'AVAILABLE'
@@ -426,14 +432,16 @@ const DashboardPage = () => {
     enabled: !!user && isDriver,
   });
 
-  const driverAvailableRides = driverAvailableRidesData ?? [];
+  const driverAvailableRides = Array.isArray(driverAvailableRidesData) ? driverAvailableRidesData : [];
 
   // Fetch driver's booked rides (for stats)
   const { data: driverBookedRidesData, isLoading: driverBookedLoading } = useQuery({
     queryKey: ['driver-booked-rides', user?.id],
     queryFn: async () => {
       if (!user || !isDriver) return [];
-      const rides = await rideService.getRidesByDriver(user.id);
+      const rides = Array.isArray(await rideService.getRidesByDriver(user.id)) 
+        ? await rideService.getRidesByDriver(user.id) 
+        : [];
       return rides.filter(ride =>
         new Date(getDateFromTimestamp(ride.departureTime)) > new Date() &&
         ride.status === 'BOOKED'
@@ -442,7 +450,7 @@ const DashboardPage = () => {
     enabled: !!user && isDriver,
   });
 
-  const driverBookedRides = driverBookedRidesData ?? [];
+  const driverBookedRides = Array.isArray(driverBookedRidesData) ? driverBookedRidesData : [];
 
   // Check for today's ride execution (for both drivers and passengers)
   const { data: todaysRideData, isLoading: todaysRideLoading } = useQuery<TodaysRideData>({
@@ -457,7 +465,9 @@ const DashboardPage = () => {
 
       if (isDriver) {
         // For drivers: check if they have a ride today that's in execution
-        const rides = await rideService.getRidesByDriver(user.id);
+        const rides = Array.isArray(await rideService.getRidesByDriver(user.id)) 
+          ? await rideService.getRidesByDriver(user.id) 
+          : [];
         const todaysRides = rides.filter(ride => {
           const rideDate = new Date(getDateFromTimestamp(ride.departureTime));
           return rideDate >= today && rideDate < tomorrow &&
@@ -466,7 +476,9 @@ const DashboardPage = () => {
         return todaysRides[0] || null; // Return the first active ride
       } else {
         // For passengers: check if they have a booking for today
-        const bookings = await bookingService.getBookingsByPassenger(user.id);
+        const bookings = Array.isArray(await bookingService.getBookingsByPassenger(user.id)) 
+          ? await bookingService.getBookingsByPassenger(user.id) 
+          : [];
         const todaysBookings = bookings.filter(booking => booking.status === 'confirmed');
 
         for (const booking of todaysBookings) {
