@@ -4,10 +4,10 @@ import { ArrowLeft, User, MapPin, Building2, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { SAMPLE_LOCATIONS } from '@/lib/dummy-data';
+import LocationPicker from '@/components/LocationPicker';
+import { Location } from '@/types';
 
 const EditProfilePage = () => {
   const { user, updateUser } = useAuth();
@@ -16,8 +16,8 @@ const EditProfilePage = () => {
   
   const [name, setName] = useState(user?.name || '');
   const [email, setEmail] = useState(user?.email || '');
-  const [homeLocationId, setHomeLocationId] = useState(user?.homeLocation?.id || '');
-  const [officeLocationId, setOfficeLocationId] = useState(user?.officeLocation?.id || '');
+  const [homeLocation, setHomeLocation] = useState<Location | null>(user?.homeLocation || null);
+  const [officeLocation, setOfficeLocation] = useState<Location | null>(user?.officeLocation || null);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -32,7 +32,7 @@ const EditProfilePage = () => {
       return;
     }
 
-    if (!homeLocationId) {
+    if (!homeLocation) {
       toast({
         variant: 'destructive',
         title: 'Home Location Required',
@@ -41,7 +41,7 @@ const EditProfilePage = () => {
       return;
     }
 
-    if (!officeLocationId) {
+    if (!officeLocation) {
       toast({
         variant: 'destructive',
         title: 'Office Location Required',
@@ -50,7 +50,7 @@ const EditProfilePage = () => {
       return;
     }
 
-    if (homeLocationId === officeLocationId) {
+    if (homeLocation.id === officeLocation.id) {
       toast({
         variant: 'destructive',
         title: 'Invalid Selection',
@@ -62,9 +62,6 @@ const EditProfilePage = () => {
     setIsLoading(true);
 
     try {
-      const homeLocation = SAMPLE_LOCATIONS.find(loc => loc.id === homeLocationId);
-      const officeLocation = SAMPLE_LOCATIONS.find(loc => loc.id === officeLocationId);
-
       updateUser({
         name: name.trim(),
         email: email.trim() || undefined,
@@ -179,21 +176,12 @@ const EditProfilePage = () => {
                 <label className="text-sm font-medium text-foreground">
                   Home Location <span className="text-destructive">*</span>
                 </label>
-                <Select value={homeLocationId} onValueChange={setHomeLocationId} disabled={isLoading}>
-                  <SelectTrigger className="h-12">
-                    <div className="flex items-center gap-2">
-                      <MapPin className="h-5 w-5 text-muted-foreground" />
-                      <SelectValue placeholder="Select home location" />
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover">
-                    {SAMPLE_LOCATIONS.map((location) => (
-                      <SelectItem key={location.id} value={location.id}>
-                        {location.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <LocationPicker
+                  value={homeLocation}
+                  onChange={setHomeLocation}
+                  placeholder="Search for your home location"
+                  disabled={isLoading}
+                />
               </div>
 
               {/* Office Location */}
@@ -201,21 +189,12 @@ const EditProfilePage = () => {
                 <label className="text-sm font-medium text-foreground">
                   Office Location <span className="text-destructive">*</span>
                 </label>
-                <Select value={officeLocationId} onValueChange={setOfficeLocationId} disabled={isLoading}>
-                  <SelectTrigger className="h-12">
-                    <div className="flex items-center gap-2">
-                      <Building2 className="h-5 w-5 text-muted-foreground" />
-                      <SelectValue placeholder="Select office location" />
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover">
-                    {SAMPLE_LOCATIONS.map((location) => (
-                      <SelectItem key={location.id} value={location.id}>
-                        {location.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <LocationPicker
+                  value={officeLocation}
+                  onChange={setOfficeLocation}
+                  placeholder="Search for your office location"
+                  disabled={isLoading}
+                />
               </div>
 
               {/* Actions */}

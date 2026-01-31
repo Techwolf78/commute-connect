@@ -2,18 +2,17 @@ import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { 
   ArrowLeft, MapPin, Clock, Users, Star, 
-  Car, User, Phone, CreditCard, Wallet, Smartphone,
+  Car, User, Phone,
   CheckCircle2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
-import { PaymentMethod, Booking } from '@/types';
+import { Booking } from '@/types';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { rideService, userService, driverService, vehicleService, bookingService } from '@/lib/firestore';
 import {
@@ -32,7 +31,6 @@ const RideDetailsPage = () => {
   const queryClient = useQueryClient();
   
   const [seatsToBook, setSeatsToBook] = useState('1');
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('upi');
   const [isBooking, setIsBooking] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   
@@ -73,10 +71,21 @@ const RideDetailsPage = () => {
 
   // Create booking mutation
   const createBookingMutation = useMutation({
-    mutationFn: (bookingData: Omit<Booking, 'id'>) => bookingService.createBooking(bookingData),
+    mutationFn: async (bookingData: Omit<Booking, 'id'>) => {
+      // First create the booking
+      const booking = await bookingService.createBooking(bookingData);
+      // Then update the ride status to BOOKED and decrement availableSeats
+      await rideService.updateRide(ride.id, { 
+        status: 'BOOKED',
+        availableSeats: ride.availableSeats - bookingData.seatsBooked
+      });
+      return booking;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ride-bookings'] });
       queryClient.invalidateQueries({ queryKey: ['available-rides'] });
+      queryClient.invalidateQueries({ queryKey: ['todays-ride'] });
+      queryClient.invalidateQueries({ queryKey: ['user-bookings'] });
       setShowSuccess(true);
     },
     onError: (error) => {
@@ -147,12 +156,13 @@ const RideDetailsPage = () => {
       rideId: ride.id,
       passengerId: user.id,
       seatsBooked: seats,
-      totalCost,
+      amountToPayDriver: totalCost,
       status: 'confirmed',
-      paymentMethod,
-      paymentStatus: 'paid',
       bookedAt: new Date(),
     });
+
+    // Update ride status to BOOKED
+    await rideService.updateRide(ride.id, { status: 'BOOKED' });
   };
 
   const handleSuccessClose = () => {
@@ -302,32 +312,6 @@ const RideDetailsPage = () => {
                   </Select>
                 </div>
 
-                {/* Payment Method */}
-                <div className="space-y-3">
-                  <Label>Payment Method</Label>
-                  <RadioGroup 
-                    value={paymentMethod} 
-                    onValueChange={(v) => setPaymentMethod(v as PaymentMethod)}
-                    className="space-y-2"
-                  >
-                    <div className="flex items-center space-x-3 p-3 border rounded-lg cursor-pointer hover:bg-muted/50">
-                      <RadioGroupItem value="upi" id="upi" />
-                      <Smartphone className="h-5 w-5 text-muted-foreground" />
-                      <Label htmlFor="upi" className="cursor-pointer flex-1">UPI</Label>
-                    </div>
-                    <div className="flex items-center space-x-3 p-3 border rounded-lg cursor-pointer hover:bg-muted/50">
-                      <RadioGroupItem value="card" id="card" />
-                      <CreditCard className="h-5 w-5 text-muted-foreground" />
-                      <Label htmlFor="card" className="cursor-pointer flex-1">Debit/Credit Card</Label>
-                    </div>
-                    <div className="flex items-center space-x-3 p-3 border rounded-lg cursor-pointer hover:bg-muted/50">
-                      <RadioGroupItem value="wallet" id="wallet" />
-                      <Wallet className="h-5 w-5 text-muted-foreground" />
-                      <Label htmlFor="wallet" className="cursor-pointer flex-1">Wallet</Label>
-                    </div>
-                  </RadioGroup>
-                </div>
-
                 {/* Cost Breakdown */}
                 <div className="bg-muted/50 rounded-lg p-4 space-y-2">
                   <div className="flex justify-between text-sm">
@@ -339,7 +323,7 @@ const RideDetailsPage = () => {
                     <span>× {seatsToBook}</span>
                   </div>
                   <div className="flex justify-between font-semibold text-lg pt-2 border-t">
-                    <span>Total</span>
+                    <span>Amount to pay driver</span>
                     <span className="text-primary">₹{totalCost}</span>
                   </div>
                 </div>
@@ -355,10 +339,10 @@ const RideDetailsPage = () => {
               {isBooking ? (
                 <span className="flex items-center gap-2">
                   <span className="animate-spin rounded-full h-4 w-4 border-2 border-primary-foreground border-t-transparent" />
-                  Processing Payment...
+                  Booking...
                 </span>
               ) : (
-                `Pay ₹${totalCost} & Book`
+                `Book Ride (Pay ₹${totalCost} to driver)`
               )}
             </Button>
           </>

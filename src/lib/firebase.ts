@@ -12,11 +12,23 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-export const app = initializeApp(firebaseConfig);
+let app;
+let auth;
+let db;
 
-// Initialize Firebase services
-export const auth = getAuth(app);
-export const db = getFirestore(app);
+try {
+  app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getFirestore(app);
+} catch (error) {
+  console.error('Error initializing Firebase:', error);
+  // Create dummy objects to prevent crashes
+  app = {} as any;
+  auth = {} as any;
+  db = {} as any;
+}
+
+export { app, auth, db };
 
 // Export types for convenience
 export type { User as FirebaseUser } from 'firebase/auth';

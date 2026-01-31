@@ -68,9 +68,9 @@ export const BookingCard = ({ booking, ride, driver, driverInfo }: BookingCardPr
               )}
             </div>
             <div className="text-right">
-              <p className="font-semibold text-primary">₹{booking.totalCost}</p>
+              <p className="font-semibold text-primary">₹{booking.amountToPayDriver}</p>
               <p className="text-xs text-muted-foreground">
-                {booking.seatsBooked} seat{booking.seatsBooked > 1 ? 's' : ''}
+                Pay driver directly
               </p>
             </div>
           </div>

@@ -65,7 +65,16 @@ const ProfilePage = () => {
       {/* Header */}
       <div className="bg-primary text-primary-foreground px-4 pt-6 md:pt-8 pb-12 md:pb-16 rounded-b-3xl">
         <div className="max-w-lg mx-auto">
-          <h1 className="text-xl md:text-2xl font-bold">Profile</h1>
+          <div className="flex items-center justify-between">
+            <h1 className="text-xl md:text-2xl font-bold">Profile</h1>
+            <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+              user?.role === 'driver' 
+                ? 'bg-blue-500/20 text-blue-100 border border-blue-400/30' 
+                : 'bg-green-500/20 text-green-100 border border-green-400/30'
+            }`}>
+              {user?.role === 'driver' ? 'Driver' : 'Passenger'}
+            </div>
+          </div>
         </div>
       </div>
 

@@ -55,7 +55,7 @@ const MyRidesPage = () => {
 
   // Cancel ride mutation
   const cancelRideMutation = useMutation({
-    mutationFn: (rideId: string) => rideService.updateRide(rideId, { status: 'cancelled' }),
+    mutationFn: (rideId: string) => rideService.updateRide(rideId, { status: 'COMPLETED' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['driver-rides'] });
       toast({ title: 'Success', description: 'Ride cancelled successfully.' });
@@ -98,11 +98,17 @@ const MyRidesPage = () => {
   const myRides = rides
     .sort((a, b) => new Date(b.departureTime).getTime() - new Date(a.departureTime).getTime());
 
-  const scheduledRides = myRides.filter(r => 
-    r.status === 'scheduled' && new Date(r.departureTime) > new Date()
+  const scheduledRides = myRides.filter(r =>
+    (r.status === 'BOOKED' || r.status === 'DRIVER_REACHED_PICKUP' || r.status === 'PASSENGER_ARRIVED' || r.status === 'TRIP_STARTED' || r.status === 'DESTINATION_REACHED') &&
+    new Date(r.departureTime) > new Date()
   );
-  const completedRides = myRides.filter(r => r.status === 'completed');
-  const cancelledRides = myRides.filter(r => r.status === 'cancelled');
+  const availableRides = myRides.filter(r =>
+    r.status === 'AVAILABLE' && new Date(r.departureTime) > new Date()
+  );
+  const completedRides = myRides.filter(r => r.status === 'COMPLETED');
+  const pastRides = myRides.filter(r =>
+    new Date(r.departureTime) <= new Date() && r.status !== 'COMPLETED'
+  );
 
   const getBookingsForRide = (rideId: string) => {
     return bookings.filter(b => 
@@ -127,7 +133,7 @@ const MyRidesPage = () => {
     const rideBookings = getBookingsForRide(ride.id);
     const bookedSeats = ride.totalSeats - ride.availableSeats;
     const isPast = new Date(ride.departureTime) < new Date();
-    const totalEarnings = rideBookings.reduce((sum, b) => sum + b.totalCost, 0);
+    const totalEarnings = rideBookings.reduce((sum, b) => sum + b.amountToPayDriver, 0);
     
     return (
       <Card className="overflow-hidden">
@@ -140,9 +146,10 @@ const MyRidesPage = () => {
                 {format(new Date(ride.departureTime), 'EEE, MMM d • h:mm a')}
               </div>
               <span className={`text-xs px-2 py-1 rounded-full ${
-                ride.status === 'scheduled' ? 'bg-success/10 text-success' :
-                ride.status === 'completed' ? 'bg-primary/10 text-primary' :
-                'bg-destructive/10 text-destructive'
+                ride.status === 'AVAILABLE' ? 'bg-blue-50 text-blue-700' :
+                ride.status === 'BOOKED' ? 'bg-success/10 text-success' :
+                ride.status === 'COMPLETED' ? 'bg-primary/10 text-primary' :
+                'bg-muted/10 text-muted-foreground'
               }`}>
                 {ride.status.charAt(0).toUpperCase() + ride.status.slice(1)}
               </span>
@@ -186,7 +193,7 @@ const MyRidesPage = () => {
             )}
 
             {/* Actions */}
-            {ride.status === 'scheduled' && (
+            {ride.status === 'BOOKED' && (
               <div className="flex gap-2 pt-2">
                 {isPast ? (
                   <Button 
@@ -250,38 +257,60 @@ const MyRidesPage = () => {
             <h1 className="text-2xl font-bold">My Rides</h1>
             <p className="text-primary-foreground/80 mt-1">Manage your offered rides</p>
           </div>
-          <Button 
-            variant="secondary"
-            size="sm"
-            onClick={() => navigate('/create-ride')}
-          >
-            <Plus className="h-4 w-4 mr-1" />
-            New Ride
-          </Button>
+          <div className="flex items-center gap-2">
+            <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+              user?.role === 'driver' 
+                ? 'bg-blue-500/20 text-blue-100 border border-blue-400/30' 
+                : 'bg-green-500/20 text-green-100 border border-green-400/30'
+            }`}>
+              {user?.role === 'driver' ? 'Driver' : 'Passenger'}
+            </div>
+            <Button 
+              variant="secondary"
+              size="sm"
+              onClick={() => navigate('/create-ride')}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              New Ride
+            </Button>
+          </div>
         </div>
       </div>
 
       <div className="px-4 mt-4 max-w-lg mx-auto">
-        <Tabs defaultValue="scheduled" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-4">
-            <TabsTrigger value="scheduled">
-              Scheduled ({scheduledRides.length})
+        <Tabs defaultValue="available" className="w-full">
+          <TabsList className="grid w-full grid-cols-4 mb-4">
+            <TabsTrigger value="available">
+              Available ({availableRides.length})
+            </TabsTrigger>
+            <TabsTrigger value="booked">
+              Booked ({scheduledRides.length})
             </TabsTrigger>
             <TabsTrigger value="completed">
               Completed ({completedRides.length})
             </TabsTrigger>
-            <TabsTrigger value="cancelled">
-              Cancelled ({cancelledRides.length})
+            <TabsTrigger value="past">
+              Past ({pastRides.length})
             </TabsTrigger>
           </TabsList>
           
-          <TabsContent value="scheduled" className="space-y-4">
+          <TabsContent value="available" className="space-y-4">
+            {availableRides.length > 0 ? (
+              availableRides.map(ride => (
+                <RideCard key={ride.id} ride={ride} />
+              ))
+            ) : (
+              <EmptyState message="No available rides" />
+            )}
+          </TabsContent>
+          
+          <TabsContent value="booked" className="space-y-4">
             {scheduledRides.length > 0 ? (
               scheduledRides.map(ride => (
                 <RideCard key={ride.id} ride={ride} />
               ))
             ) : (
-              <EmptyState message="No scheduled rides" />
+              <EmptyState message="No booked rides yet" />
             )}
           </TabsContent>
           
@@ -295,13 +324,13 @@ const MyRidesPage = () => {
             )}
           </TabsContent>
           
-          <TabsContent value="cancelled" className="space-y-4">
-            {cancelledRides.length > 0 ? (
-              cancelledRides.map(ride => (
+          <TabsContent value="past" className="space-y-4">
+            {pastRides.length > 0 ? (
+              pastRides.map(ride => (
                 <RideCard key={ride.id} ride={ride} />
               ))
             ) : (
-              <EmptyState message="No cancelled rides" />
+              <EmptyState message="No past rides" />
             )}
           </TabsContent>
         </Tabs>

@@ -35,51 +35,72 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Listen to authentication state changes
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setFirebaseUser(firebaseUser);
-
-      if (firebaseUser) {
-        try {
-          // Get user profile from Firestore
-          const userProfile = await userService.getUser(firebaseUser.uid);
-          if (userProfile) {
-            setUser(userProfile);
-          } else {
-            // Create user profile if it doesn't exist
-            const newUser: User = {
-              id: firebaseUser.uid,
-              name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
-              email: firebaseUser.email || '',
-              role: 'passenger',
-              createdAt: new Date().toISOString(),
-            };
-            await userService.createUser(newUser);
-            setUser(newUser);
-          }
-        } catch (error) {
-          console.error('Error loading user profile:', error);
-          // Fallback: create user object from Firebase user data
-          const fallbackUser: User = {
-            id: firebaseUser.uid,
-            name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
-            email: firebaseUser.email || '',
-            role: 'passenger',
-            createdAt: new Date().toISOString(),
-          };
-          setUser(fallbackUser);
-        }
-      } else {
-        setUser(null);
-      }
-
+    if (!auth || typeof auth.onAuthStateChanged !== 'function') {
+      console.error('Firebase auth not properly initialized');
       setIsLoading(false);
-    });
+      return () => {};
+    }
 
-    return unsubscribe;
+    try {
+      // Listen to authentication state changes
+      const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        try {
+          setFirebaseUser(firebaseUser);
+
+          if (firebaseUser) {
+            try {
+              // Get user profile from Firestore
+              const userProfile = await userService.getUser(firebaseUser.uid);
+              if (userProfile) {
+                setUser(userProfile);
+              } else {
+                // Create user profile if it doesn't exist
+                const newUser: User = {
+                  id: firebaseUser.uid,
+                  name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+                  email: firebaseUser.email || '',
+                  role: 'passenger',
+                  createdAt: new Date().toISOString(),
+                };
+                await userService.createUser(newUser);
+                setUser(newUser);
+              }
+            } catch (error) {
+              console.error('Error loading user profile:', error);
+              // Fallback: create user object from Firebase user data
+              const fallbackUser: User = {
+                id: firebaseUser.uid,
+                name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+                email: firebaseUser.email || '',
+                role: 'passenger',
+                createdAt: new Date().toISOString(),
+              };
+              setUser(fallbackUser);
+            }
+          } else {
+            setUser(null);
+          }
+
+          setIsLoading(false);
+        } catch (error) {
+          console.error('Error in auth state change handler:', error);
+          setUser(null);
+          setIsLoading(false);
+        }
+      });
+
+      return unsubscribe;
+    } catch (error) {
+      console.error('Error setting up auth listener:', error);
+      setIsLoading(false);
+      return () => {};
+    }
   }, []);
 
   const signIn = async (email: string, password: string) => {
+    if (!auth || typeof auth.signInWithEmailAndPassword !== 'function') {
+      throw new Error('Firebase auth not initialized');
+    }
     try {
       await signInWithEmailAndPassword(auth, email, password);
     } catch (error) {
@@ -89,6 +110,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signUp = async (email: string, password: string, name: string) => {
+    if (!auth || typeof auth.createUserWithEmailAndPassword !== 'function') {
+      throw new Error('Firebase auth not initialized');
+    }
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
 
@@ -115,6 +139,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signInWithGoogle = async () => {
+    if (!auth || typeof auth.signInWithPopup !== 'function') {
+      throw new Error('Firebase auth not initialized');
+    }
     try {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
@@ -125,6 +152,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
+    if (!auth || typeof auth.signOut !== 'function') {
+      throw new Error('Firebase auth not initialized');
+    }
     try {
       await signOut(auth);
     } catch (error) {

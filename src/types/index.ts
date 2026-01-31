@@ -42,7 +42,7 @@ export interface Vehicle {
 }
 
 // Ride Types
-export type RideStatus = 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
+export type RideStatus = 'AVAILABLE' | 'BOOKED' | 'DRIVER_REACHED_PICKUP' | 'PASSENGER_ARRIVED' | 'TRIP_STARTED' | 'DESTINATION_REACHED' | 'COMPLETED';
 export type RideDirection = 'to_office' | 'from_office';
 
 export interface Ride {
@@ -58,6 +58,14 @@ export interface Ride {
   costPerSeat: number;
   status: RideStatus;
   route?: string;
+  // Ride execution tracking
+  pickupReachedAt?: Date;
+  passengerArrivedAt?: Date;
+  tripStartedAt?: Date;
+  estimatedArrivalTime?: string; // Static ETA calculated once
+  destinationReachedAt?: Date;
+  paymentCollected?: boolean;
+  rideCompletedAt?: Date;
   createdAt: Date;
   updatedAt?: Date;
 }
@@ -70,26 +78,11 @@ export interface Booking {
   rideId: string;
   passengerId: string;
   seatsBooked: number;
-  totalCost: number;
+  amountToPayDriver: number; // Amount passenger needs to pay driver directly
   status: BookingStatus;
-  paymentMethod: PaymentMethod;
-  paymentStatus: 'pending' | 'paid' | 'refunded';
   bookedAt: Date;
   cancelledAt?: Date;
   completedAt?: Date;
-}
-
-// Payment Types
-export type PaymentMethod = 'upi' | 'card' | 'wallet';
-
-export interface Payment {
-  id: string;
-  bookingId: string;
-  amount: number;
-  method: PaymentMethod;
-  status: 'pending' | 'success' | 'failed';
-  transactionId?: string;
-  createdAt: Date;
 }
 
 // Rating Types

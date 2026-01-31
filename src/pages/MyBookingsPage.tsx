@@ -198,9 +198,9 @@ const MyBookingsPage = () => {
                 )} */}
               </div>
               <div className="text-right">
-                <p className="font-semibold text-primary">₹{booking.totalCost}</p>
+                <p className="font-semibold text-primary">₹{booking.amountToPayDriver}</p>
                 <p className="text-xs text-muted-foreground">
-                  {booking.seatsBooked} seat{booking.seatsBooked > 1 ? 's' : ''}
+                  Pay driver directly
                 </p>
               </div>
             </div>
@@ -266,8 +266,19 @@ const MyBookingsPage = () => {
       {/* Header */}
       <div className="bg-primary text-primary-foreground px-4 pt-8 pb-6">
         <div className="max-w-lg mx-auto">
-          <h1 className="text-2xl font-bold">My Bookings</h1>
-          <p className="text-primary-foreground/80 mt-1">Manage your ride bookings</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold">My Bookings</h1>
+              <p className="text-primary-foreground/80 mt-1">Manage your ride bookings</p>
+            </div>
+            <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+              user?.role === 'driver' 
+                ? 'bg-blue-500/20 text-blue-100 border border-blue-400/30' 
+                : 'bg-green-500/20 text-green-100 border border-green-400/30'
+            }`}>
+              {user?.role === 'driver' ? 'Driver' : 'Passenger'}
+            </div>
+          </div>
         </div>
       </div>
 

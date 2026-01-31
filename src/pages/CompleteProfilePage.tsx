@@ -4,10 +4,10 @@ import { User, MapPin, Building2, ArrowRight, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { SAMPLE_LOCATIONS } from '@/lib/dummy-data';
+import LocationPicker from '@/components/LocationPicker';
+import { Location } from '@/types';
 
 const CompleteProfilePage = () => {
   const { user, updateUser, isLoading: authLoading } = useAuth();
@@ -16,8 +16,8 @@ const CompleteProfilePage = () => {
   
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [homeLocationId, setHomeLocationId] = useState('');
-  const [officeLocationId, setOfficeLocationId] = useState('');
+  const [homeLocation, setHomeLocation] = useState<Location | null>(null);
+  const [officeLocation, setOfficeLocation] = useState<Location | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   // Update form fields when user data loads
@@ -25,8 +25,8 @@ const CompleteProfilePage = () => {
     if (user) {
       setName(user.name || '');
       setEmail(user.email || '');
-      setHomeLocationId(user.homeLocation?.id || '');
-      setOfficeLocationId(user.officeLocation?.id || '');
+      setHomeLocation(user.homeLocation || null);
+      setOfficeLocation(user.officeLocation || null);
     }
   }, [user]);
 
@@ -46,7 +46,7 @@ const CompleteProfilePage = () => {
       return;
     }
 
-    if (!homeLocationId) {
+    if (!homeLocation) {
       toast({
         variant: 'destructive',
         title: 'Home Location Required',
@@ -55,7 +55,7 @@ const CompleteProfilePage = () => {
       return;
     }
 
-    if (!officeLocationId) {
+    if (!officeLocation) {
       toast({
         variant: 'destructive',
         title: 'Office Location Required',
@@ -64,7 +64,7 @@ const CompleteProfilePage = () => {
       return;
     }
 
-    if (homeLocationId === officeLocationId) {
+    if (homeLocation.id === officeLocation.id) {
       toast({
         variant: 'destructive',
         title: 'Invalid Selection',
@@ -83,9 +83,6 @@ const CompleteProfilePage = () => {
       if (!user.id) {
         throw new Error('User ID is missing. Please try logging in again.');
       }
-
-      const homeLocation = SAMPLE_LOCATIONS.find(loc => loc.id === homeLocationId);
-      const officeLocation = SAMPLE_LOCATIONS.find(loc => loc.id === officeLocationId);
 
       updateUser({
         name: name.trim(),
@@ -191,21 +188,12 @@ const CompleteProfilePage = () => {
                 <label className="text-sm font-medium text-foreground">
                   Home Location <span className="text-destructive">*</span>
                 </label>
-                <Select value={homeLocationId} onValueChange={setHomeLocationId} disabled={isLoading}>
-                  <SelectTrigger className="h-12">
-                    <div className="flex items-center gap-2">
-                      <MapPin className="h-5 w-5 text-muted-foreground" />
-                      <SelectValue placeholder="Select home location" />
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover">
-                    {SAMPLE_LOCATIONS.map((location) => (
-                      <SelectItem key={location.id} value={location.id}>
-                        {location.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <LocationPicker
+                  value={homeLocation}
+                  onChange={setHomeLocation}
+                  placeholder="Search for your home location"
+                  disabled={isLoading}
+                />
               </div>
 
               {/* Office Location */}
@@ -213,28 +201,19 @@ const CompleteProfilePage = () => {
                 <label className="text-sm font-medium text-foreground">
                   Office Location <span className="text-destructive">*</span>
                 </label>
-                <Select value={officeLocationId} onValueChange={setOfficeLocationId} disabled={isLoading}>
-                  <SelectTrigger className="h-12">
-                    <div className="flex items-center gap-2">
-                      <Building2 className="h-5 w-5 text-muted-foreground" />
-                      <SelectValue placeholder="Select office location" />
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover">
-                    {SAMPLE_LOCATIONS.map((location) => (
-                      <SelectItem key={location.id} value={location.id}>
-                        {location.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <LocationPicker
+                  value={officeLocation}
+                  onChange={setOfficeLocation}
+                  placeholder="Search for your office location"
+                  disabled={isLoading}
+                />
               </div>
 
               {/* Submit Button */}
               <Button
                 type="submit"
                 className="w-full h-12 text-base font-medium"
-                disabled={isLoading || !name.trim() || !homeLocationId || !officeLocationId}
+                disabled={isLoading || !name.trim() || !homeLocation || !officeLocation}
               >
                 {isLoading ? (
                   <span className="flex items-center gap-2">

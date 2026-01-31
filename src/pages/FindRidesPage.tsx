@@ -8,26 +8,26 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useAuth } from '@/contexts/AuthContext';
-import { SAMPLE_LOCATIONS } from '@/lib/dummy-data';
+import LocationPicker from '@/components/LocationPicker';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { rideService } from '@/lib/firestore';
-import { Ride } from '@/types';
+import { Ride, Location } from '@/types';
 
 const FindRidesPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const [fromLocation, setFromLocation] = useState('');
-  const [toLocation, setToLocation] = useState('');
+  const [fromLocation, setFromLocation] = useState<Location | null>(null);
+  const [toLocation, setToLocation] = useState<Location | null>(null);
   const [direction, setDirection] = useState<'all' | 'to_office' | 'from_office'>('all');
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [maxPrice, setMaxPrice] = useState('');
   const [minSeats, setMinSeats] = useState('1');
   const clearFilters = () => {
-    setFromLocation('');
-    setToLocation('');
+    setFromLocation(null);
+    setToLocation(null);
     setDirection('all');
     setSelectedDate(undefined);
     setMaxPrice('');
@@ -36,26 +36,74 @@ const FindRidesPage = () => {
 
   // Fetch available rides with filters
   const { data: allRides = [], isLoading, error } = useQuery({
-    queryKey: ['available-rides', direction, selectedDate || 'all'],
+    queryKey: ['available-rides'],
     queryFn: async () => {
-      const rides = await rideService.getAvailableRides(
-        undefined, // startLocationName - will filter client-side
-        undefined, // endLocationName - will filter client-side
-        direction === 'all' ? undefined : direction,
-        selectedDate
-      );
-      // Temporarily disable user filtering to debug
-      // return rides.filter(ride => ride.driverId !== user?.id);
-      return rides;
+      console.log('🔍 FindRidesPage: Starting to fetch available rides...');
+      // Get ALL available rides, filter client-side only
+      const rides = await rideService.getAvailableRides();
+      console.log('📊 FindRidesPage: Raw rides from server:', rides);
+      console.log('👤 FindRidesPage: Current user ID:', user?.id);
+      console.log('🎭 FindRidesPage: Current user role:', user?.role);
+      
+      // Filter out user's own rides
+      const filteredRides = rides.filter(ride => ride.driverId !== user?.id);
+      console.log('✅ FindRidesPage: After filtering own rides:', filteredRides);
+      
+      return filteredRides;
     },
     enabled: !!user,
   });
 
   // Filter available rides based on search criteria
   const availableRides = allRides.filter(ride => {
-    // Temporarily disable all filters to debug
-    return true; // Show all rides for debugging
+    console.log('🔍 FindRidesPage: Filtering ride:', {
+      id: ride.id,
+      status: ride.status,
+      direction: ride.direction,
+      departureTime: ride.departureTime,
+      driverId: ride.driverId
+    });
+    
+    // Filter by from location
+    if (fromLocation && ride.startLocation.name !== fromLocation.name) {
+      console.log('❌ FindRidesPage: Filtered out by fromLocation');
+      return false;
+    }
+    // Filter by to location
+    if (toLocation && ride.endLocation.name !== toLocation.name) {
+      console.log('❌ FindRidesPage: Filtered out by toLocation');
+      return false;
+    }
+    // Filter by direction
+    if (direction !== 'all' && ride.direction !== direction) {
+      console.log('❌ FindRidesPage: Filtered out by direction', { filter: direction, rideDirection: ride.direction });
+      return false;
+    }
+    // Filter by date
+    if (selectedDate) {
+      const rideDate = new Date(ride.departureTime).toDateString();
+      const filterDate = selectedDate.toDateString();
+      if (rideDate !== filterDate) {
+        console.log('❌ FindRidesPage: Filtered out by date', { rideDate, filterDate });
+        return false;
+      }
+    }
+    // Filter by max price
+    if (maxPrice && ride.costPerSeat > parseInt(maxPrice)) {
+      console.log('❌ FindRidesPage: Filtered out by maxPrice');
+      return false;
+    }
+    // Filter by min seats
+    if (minSeats && ride.availableSeats < parseInt(minSeats)) {
+      console.log('❌ FindRidesPage: Filtered out by minSeats');
+      return false;
+    }
+    
+    console.log('✅ FindRidesPage: Ride passed all filters');
+    return true;
   }).sort((a, b) => new Date(a.departureTime).getTime() - new Date(b.departureTime).getTime());
+  
+  console.log('🎯 FindRidesPage: Final availableRides count:', availableRides.length);
 
   const RideCard = ({ ride }: { ride: Ride }) => {
     return (
@@ -119,8 +167,19 @@ const FindRidesPage = () => {
       {/* Header */}
       <div className="bg-primary text-primary-foreground px-4 pt-6 md:pt-8 pb-4 md:pb-6">
         <div className="max-w-lg mx-auto">
-          <h1 className="text-xl md:text-2xl font-bold">Find a Ride</h1>
-          <p className="text-primary-foreground/80 mt-1 text-sm md:text-base">Discover available commute options</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl md:text-2xl font-bold">Find a Ride</h1>
+              <p className="text-primary-foreground/80 mt-1 text-sm md:text-base">Discover available commute options</p>
+            </div>
+            <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+              user?.role === 'driver' 
+                ? 'bg-blue-500/20 text-blue-100 border border-blue-400/30' 
+                : 'bg-green-500/20 text-green-100 border border-green-400/30'
+            }`}>
+              {user?.role === 'driver' ? 'Driver' : 'Passenger'}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -128,36 +187,16 @@ const FindRidesPage = () => {
       <div className="px-4 -mt-2 md:-mt-3 max-w-lg mx-auto">
         <Card className="shadow-lg">
           <CardContent className="p-3 md:p-4 space-y-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Select value={fromLocation} onValueChange={setFromLocation}>
-                <SelectTrigger className="pl-9">
-                  <SelectValue placeholder="From location" />
-                </SelectTrigger>
-                <SelectContent>
-                  {SAMPLE_LOCATIONS.map(location => (
-                    <SelectItem key={location.id} value={location.name}>
-                      {location.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Select value={toLocation} onValueChange={setToLocation}>
-                <SelectTrigger className="pl-9">
-                  <SelectValue placeholder="To location" />
-                </SelectTrigger>
-                <SelectContent>
-                  {SAMPLE_LOCATIONS.map(location => (
-                    <SelectItem key={location.id} value={location.name}>
-                      {location.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <LocationPicker
+              value={fromLocation}
+              onChange={setFromLocation}
+              placeholder="From location"
+            />
+            <LocationPicker
+              value={toLocation}
+              onChange={setToLocation}
+              placeholder="To location"
+            />
             <Select value={direction} onValueChange={(value) => setDirection(value as 'all' | 'to_office' | 'from_office')}>
               <SelectTrigger>
                 <SelectValue placeholder="Direction" />

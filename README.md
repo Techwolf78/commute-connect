@@ -11,10 +11,28 @@ Commute Connect is a full-stack ride-sharing application that allows users to sh
 - **Multiple Authentication**: Email/password and Google sign-in using Firebase Auth
 - **Real-time Ride Sharing**: Create and join rides between home and office locations
 - **Driver Verification**: Verified drivers with vehicle information
-- **Booking System**: Seamless booking with payment integration
+- **Booking System**: Seamless booking with offline payment to drivers
 - **Rating System**: Rate drivers and passengers for trust and safety
 - **Real-time Updates**: Live ride status and booking confirmations
 - **Responsive Design**: Mobile-first design with modern UI
+- **Smart Scheduling**: 2-hour minimum advance booking for same-day rides, up to 30 days in advance
+
+### Ride Scheduling Rules
+
+**Date Selection:**
+- **Today's date**: Available for selection (time restrictions apply)
+- **Future dates**: Up to 30 days in advance
+
+**Minimum Advance Booking:**
+- **Same-day rides**: Must be scheduled at least 2 hours in advance
+- **Next-day rides**: Can be scheduled anytime
+- **Future rides**: Can be scheduled anytime
+
+**Example (January 31st, 11:52 AM):**
+- ✅ **Today evening**: Can select January 31st + 6:00 PM (4+ hours ahead)
+- ❌ **Today noon**: Cannot select January 31st + 12:00 PM (only 0.13 hours ahead)
+- ✅ **Tomorrow**: Can select February 1st + any time
+- ❌ **31 days later**: March 3rd not allowed (exceeds 30-day limit)
 
 ## 🏗️ Architecture
 
@@ -312,10 +330,8 @@ firebase deploy
   rideId: string;
   passengerId: string;
   seatsBooked: number;
-  totalCost: number;
+  amountToPayDriver: number; // Amount passenger needs to pay driver directly
   status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
-  paymentMethod: 'upi' | 'card' | 'wallet';
-  paymentStatus: 'pending' | 'paid' | 'refunded';
   bookedAt: Timestamp;
   cancelledAt?: Timestamp;
   completedAt?: Timestamp;
@@ -359,8 +375,7 @@ src/
 ├── lib/                # Utilities and services
 │   ├── firebase.ts     # Firebase configuration
 │   ├── firestore.ts    # Firestore operations
-│   ├── utils.ts
-│   └── storage.ts      # Legacy localStorage (remove after migration)
+│   └── utils.ts
 ├── pages/              # Page components
 ├── types/              # TypeScript type definitions
 └── test/               # Test files
@@ -368,17 +383,17 @@ src/
 
 ## 🔄 Migration from Demo to Production
 
-### Code Changes Required
+### ✅ Completed
+- **Firebase-only Storage**: All data operations use Firestore instead of localStorage
+- **Firebase Authentication**: Phone authentication with OTP verification
+- **Real-time Data**: Live updates from Firestore collections
+- **Offline Payment**: Direct payment to drivers (no gateway integration)
 
-1. **Replace localStorage with Firestore**:
-   - Update `AuthContext.tsx` to use Firebase Auth
-   - Create Firestore service functions in `lib/firestore.ts`
-   - Update all data operations to use Firestore instead of localStorage
-
-2. **Authentication Updates**:
-   - Implement Firebase phone authentication
-   - Remove dummy OTP logic
-   - Update session management
+### Code Changes Completed
+1. **Removed localStorage**: Deleted `storage.ts` and all local storage functions
+2. **Firebase Auth**: Implemented phone authentication in `AuthContext.tsx`
+3. **Firestore Services**: All CRUD operations use Firestore collections
+4. **Real-time Updates**: Live data synchronization across the app
 
 3. **Data Operations**:
    - Convert all CRUD operations to Firestore
@@ -412,7 +427,36 @@ src/
 - **Authentication**: Firebase handles secure authentication
 - **Data Privacy**: User data protected and encrypted
 
-## 🚀 Performance Optimization
+## � Ride Execution Flow
+
+### Overview
+The app implements a strict, manual ride execution flow that ensures safety and prevents issues with live tracking. Only drivers can advance ride status, and ETA is calculated once at trip start.
+
+### Status Flow
+```
+BOOKED → DRIVER_REACHED_PICKUP → PASSENGER_ARRIVED → TRIP_STARTED → DESTINATION_REACHED → COMPLETED
+```
+
+### Key Principles
+- ❌ No real-time GPS tracking
+- ❌ No live ETA updates
+- ❌ No background location monitoring
+- ✅ Driver-only status controls
+- ✅ Static ETA calculation
+- ✅ Firebase single source of truth
+
+### Driver Actions
+1. **I HAVE REACHED PICKUP LOCATION** - When driver arrives
+2. **PASSENGER ARRIVED** - When passenger boards
+3. **START TRIP** - Begins journey (calculates ETA once)
+4. **ARRIVED AT DESTINATION** - When destination reached
+5. **PAYMENT COLLECTED** - Final completion
+
+### Passenger Experience
+- Receives real-time status updates
+- Must confirm arrival via modal
+- Sees static ETA after trip starts
+- Pays driver directly at destination
 
 - **Code Splitting**: Vite handles automatic code splitting
 - **Image Optimization**: Use appropriate image formats and sizes
@@ -449,7 +493,7 @@ For support and questions:
 
 - **Real-time Chat**: In-app messaging between passengers and drivers
 - **Route Optimization**: AI-powered route suggestions
-- **Payment Integration**: Stripe/PayPal integration for payments
+- **Offline Payment**: Direct payment to drivers via QR code or cash
 - **Push Notifications**: Firebase Cloud Messaging
 - **Analytics**: User behavior and ride statistics
 - **Admin Dashboard**: Management interface for administrators
@@ -465,15 +509,20 @@ For support and questions:
 - Environment configuration
 - Deployment documentation
 
-### 🔄 In Progress
-- Update all pages to use Firestore instead of localStorage
-- Implement real-time subscriptions
-- Add error handling and loading states
-- Update dummy data to use Firestore
+### ✅ All Migration Tasks Completed
+- All pages use Firestore instead of localStorage
+- Real-time subscriptions implemented
+- Error handling and loading states added
+- Firebase-only data storage (no localStorage)
+- Real-time ride updates working
+- Offline payment system (direct to drivers)
+- **Ride Execution Flow**: Manual, driver-controlled ride status updates
 
-### 📋 Remaining Tasks
-- Replace `src/lib/storage.ts` usage in components
-- Update ride creation, booking, and management pages
-- Implement real-time ride updates
-- Add offline support with Firestore persistence
-- Update profile and driver management pages
+### 🎯 Production Ready Features
+- Firebase Authentication with phone/OTP
+- Firestore real-time data synchronization
+- Ride creation, booking, and management
+- Driver verification and vehicle management
+- Rating and review system
+- Profile management for users and drivers
+- **Ride Day Execution**: Strict status flow with driver controls

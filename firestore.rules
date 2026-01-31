@@ -38,10 +38,5 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/bookings/$(resource.data.bookingId)) &&
         get(/databases/$(database)/documents/bookings/$(resource.data.bookingId)).data.passengerId == request.auth.uid;
     }
-
-    // Payments: users can read their own payment data
-    match /payments/{paymentId} {
-      allow read, write: if request.auth != null && resource.data.userId == request.auth.uid;
-    }
   }
 }

@@ -107,11 +107,6 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/bookings/$(resource.data.bookingId)) &&
         get(/databases/$(database)/documents/bookings/$(resource.data.bookingId)).data.passengerId == request.auth.uid;
     }
-
-    // Payments: users can read their own payment data
-    match /payments/{paymentId} {
-      allow read, write: if request.auth != null && resource.data.userId == request.auth.uid;
-    }
   }
 }
 ```
@@ -270,7 +265,7 @@ Update Firestore rules from "test mode" to production rules as configured in Ste
 2. **Add Logging**: Integrate error logging service
 3. **Add Analytics**: Track user behavior
 4. **Add Push Notifications**: Firebase Cloud Messaging
-5. **Add Payment Integration**: Stripe/PayPal for ride payments
+5. **Offline Payment System**: Direct payment to drivers via QR code or cash
 6. **Add Admin Dashboard**: Management interface
 
 ## Support

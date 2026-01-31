@@ -14,10 +14,10 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { SAMPLE_LOCATIONS } from '@/lib/dummy-data';
-import { format, addDays, setHours, setMinutes } from 'date-fns';
+import LocationPicker from '@/components/LocationPicker';
+import { format, setHours, setMinutes } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { RideDirection } from '@/types';
+import { RideDirection, Location } from '@/types';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { rideService, driverService, vehicleService, userService } from '@/lib/firestore';
 import {
@@ -54,10 +54,10 @@ const CreateRidePage = () => {
   });
   
   const [direction, setDirection] = useState<RideDirection>('to_office');
-  const [date, setDate] = useState<Date | undefined>(addDays(new Date(), 1));
+  const [date, setDate] = useState<Date | undefined>(new Date());
   const [time, setTime] = useState('08:30');
-  const [startLocationId, setStartLocationId] = useState('');
-  const [endLocationId, setEndLocationId] = useState('');
+  const [startLocation, setStartLocation] = useState<Location | null>(null);
+  const [endLocation, setEndLocation] = useState<Location | null>(null);
   const [availableSeats, setAvailableSeats] = useState('3');
   const [costPerSeat, setCostPerSeat] = useState('');
   const [isCreating, setIsCreating] = useState(false);
@@ -91,21 +91,25 @@ const CreateRidePage = () => {
     );
   }
 
-  const timeSlots = [
-    '06:00', '06:30', '07:00', '07:30', '08:00', '08:30', '09:00', '09:30', '10:00',
-    '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00'
-  ];
+  // Generate time slots from 6:00 AM to 11:00 PM with 10-minute intervals
+  const timeSlots = [];
+  for (let hour = 6; hour <= 23; hour++) {
+    for (let minute = 0; minute < 60; minute += 10) {
+      const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+      timeSlots.push(timeString);
+    }
+  }
 
   const handleDirectionChange = (value: RideDirection) => {
     setDirection(value);
     // Auto-fill locations based on direction
     if (userProfile?.homeLocation && userProfile?.officeLocation) {
       if (value === 'to_office') {
-        setStartLocationId(userProfile.homeLocation.id);
-        setEndLocationId(userProfile.officeLocation.id);
+        setStartLocation(userProfile.homeLocation);
+        setEndLocation(userProfile.officeLocation);
       } else {
-        setStartLocationId(userProfile.officeLocation.id);
-        setEndLocationId(userProfile.homeLocation.id);
+        setStartLocation(userProfile.officeLocation);
+        setEndLocation(userProfile.homeLocation);
       }
     }
   };
@@ -117,11 +121,11 @@ const CreateRidePage = () => {
       toast({ variant: 'destructive', title: 'Error', description: 'Please select a date.' });
       return;
     }
-    if (!startLocationId || !endLocationId) {
+    if (!startLocation || !endLocation) {
       toast({ variant: 'destructive', title: 'Error', description: 'Please select pickup and drop locations.' });
       return;
     }
-    if (startLocationId === endLocationId) {
+    if (startLocation.id === endLocation.id) {
       toast({ variant: 'destructive', title: 'Error', description: 'Start and end locations must be different.' });
       return;
     }
@@ -135,15 +139,40 @@ const CreateRidePage = () => {
     try {
       const [hours, minutes] = time.split(':').map(Number);
       const departureTime = setMinutes(setHours(date, hours), minutes);
+      const now = new Date();
 
-      if (departureTime <= new Date()) {
+      // Check if departure time is in the future
+      if (departureTime <= now) {
         toast({ variant: 'destructive', title: 'Error', description: 'Departure time must be in the future.' });
         setIsCreating(false);
         return;
       }
 
-      const startLocation = SAMPLE_LOCATIONS.find(loc => loc.id === startLocationId)!;
-      const endLocation = SAMPLE_LOCATIONS.find(loc => loc.id === endLocationId)!;
+      // Check minimum advance booking time (2 minutes for same-day rides)
+      const twoMinutesFromNow = new Date(now.getTime() + 2 * 60 * 1000);
+      const isSameDay = departureTime.toDateString() === now.toDateString();
+
+      if (isSameDay && departureTime < twoMinutesFromNow) {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Same-day rides must be scheduled at least 2 minutes in advance.'
+        });
+        setIsCreating(false);
+        return;
+      }
+
+      // Check maximum advance booking time (30 days)
+      const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      if (departureTime > thirtyDaysFromNow) {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Rides cannot be scheduled more than 30 days in advance.'
+        });
+        setIsCreating(false);
+        return;
+      }
 
       await rideService.createRide({
         driverId: user!.id,
@@ -155,7 +184,7 @@ const CreateRidePage = () => {
         availableSeats: parseInt(availableSeats),
         totalSeats: parseInt(availableSeats),
         costPerSeat: parseInt(costPerSeat),
-        status: 'scheduled',
+        status: 'AVAILABLE',
         createdAt: new Date(),
       });
 
@@ -252,7 +281,13 @@ const CreateRidePage = () => {
                       mode="single"
                       selected={date}
                       onSelect={setDate}
-                      disabled={(date) => date < new Date()}
+                      disabled={(date) => {
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        const thirtyDaysFromNow = new Date(today);
+                        thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+                        return date < today || date > thirtyDaysFromNow;
+                      }}
                       initialFocus
                       className="pointer-events-auto"
                     />
@@ -287,19 +322,11 @@ const CreateRidePage = () => {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label>Pickup Location</Label>
-                <Select value={startLocationId} onValueChange={setStartLocationId}>
-                  <SelectTrigger className="h-12">
-                    <MapPin className="h-4 w-4 mr-2 text-muted-foreground" />
-                    <SelectValue placeholder="Select pickup point" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover">
-                    {SAMPLE_LOCATIONS.map(loc => (
-                      <SelectItem key={loc.id} value={loc.id}>
-                        {loc.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <LocationPicker
+                  value={startLocation}
+                  onChange={setStartLocation}
+                  placeholder="Search for pickup location"
+                />
               </div>
 
               <div className="flex justify-center">
@@ -308,19 +335,11 @@ const CreateRidePage = () => {
 
               <div className="space-y-2">
                 <Label>Drop Location</Label>
-                <Select value={endLocationId} onValueChange={setEndLocationId}>
-                  <SelectTrigger className="h-12">
-                    <MapPin className="h-4 w-4 mr-2 text-muted-foreground" />
-                    <SelectValue placeholder="Select drop point" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover">
-                    {SAMPLE_LOCATIONS.map(loc => (
-                      <SelectItem key={loc.id} value={loc.id}>
-                        {loc.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <LocationPicker
+                  value={endLocation}
+                  onChange={setEndLocation}
+                  placeholder="Search for drop location"
+                />
               </div>
             </CardContent>
           </Card>

@@ -25,8 +25,7 @@ import {
   Ride,
   Booking,
   Rating,
-  Location,
-  Payment
+  Location
 } from '../types';
 
 // Collection names
@@ -37,7 +36,6 @@ const COLLECTIONS = {
   RIDES: 'rides',
   BOOKINGS: 'bookings',
   RATINGS: 'ratings',
-  PAYMENTS: 'payments',
 } as const;
 
 // Utility functions
@@ -295,28 +293,39 @@ export const rideService = {
     direction?: string,
     date?: Date
   ): Promise<Ride[]> {
+    console.log('🔍 Firestore: getAvailableRides called with params:', {
+      startLocationName,
+      endLocationName,
+      direction,
+      date
+    });
+    
     const conditions = [];
+    console.log('📋 Firestore: Building query conditions...');
 
-    // Temporarily remove status filter to debug
-    // conditions.push({ field: 'status', operator: '==', value: 'scheduled' });
+    // Filter for available rides only
+    conditions.push({ field: 'status', operator: '==', value: 'AVAILABLE' });
+    console.log('✅ Firestore: Added status filter: AVAILABLE');
 
-    // Temporarily remove future time filter to debug
+    // Temporarily remove future time filter to show all rides for testing
     // conditions.push({ field: 'departureTime', operator: '>', value: createTimestamp() });
+    console.log('⏰ Firestore: Time filter commented out for testing');
 
     if (direction && direction !== 'all') {
       conditions.push({ field: 'direction', operator: '==', value: direction });
+      console.log('🎯 Firestore: Added direction filter:', direction);
     }
 
     if (startLocationName) {
-      // Note: Firestore doesn't support direct nested field queries like 'startLocation.name'
-      // This would require a different data structure or client-side filtering
+      console.log('📍 Firestore: startLocationName filter requested but not supported');
     }
 
     if (endLocationName) {
-      // Same issue with nested fields
+      console.log('📍 Firestore: endLocationName filter requested but not supported');
     }
 
     if (date) {
+      console.log('📅 Firestore: Adding date filter for:', date);
       // Filter rides for the specific date
       const startOfDay = new Date(date);
       startOfDay.setHours(0, 0, 0, 0);
@@ -327,19 +336,124 @@ export const rideService = {
       conditions.push({ field: 'departureTime', operator: '<=', value: dateToTimestamp(endOfDay) });
     }
 
-    return FirestoreService.queryDocuments<Ride>(
-      COLLECTIONS.RIDES,
-      conditions,
-      'departureTime'
-    );
+    console.log('🔍 Firestore: Final conditions:', conditions);
+
+    try {
+      console.log('🚀 Firestore: Executing queryDocuments...');
+      const rides = await FirestoreService.queryDocuments<Ride>(
+        COLLECTIONS.RIDES,
+        conditions,
+        'departureTime'
+      );
+      
+      console.log('📊 Firestore: Query result:', rides);
+      console.log('🔢 Firestore: Total rides found:', rides.length);
+      
+      // Log details of each ride found
+      rides.forEach((ride, index) => {
+        console.log(`🚗 Firestore: Ride ${index + 1}:`, {
+          id: ride.id,
+          status: ride.status,
+          driverId: ride.driverId,
+          direction: ride.direction,
+          departureTime: ride.departureTime,
+          startLocation: ride.startLocation?.name,
+          endLocation: ride.endLocation?.name
+        });
+      });
+      
+      return rides;
+    } catch (error) {
+      console.error('❌ Firestore: Error in getAvailableRides:', error);
+      throw error;
+    }
   },
 
   async updateRide(rideId: string, updates: Partial<Ride>): Promise<void> {
     await FirestoreService.updateDocument(COLLECTIONS.RIDES, rideId, updates);
   },
 
+  // Ride execution functions
+  async driverReachedPickup(rideId: string): Promise<void> {
+    await FirestoreService.updateDocument(COLLECTIONS.RIDES, rideId, {
+      status: 'DRIVER_REACHED_PICKUP',
+      pickupReachedAt: createTimestamp(),
+    });
+  },
+
+  async passengerArrived(rideId: string): Promise<void> {
+    await FirestoreService.updateDocument(COLLECTIONS.RIDES, rideId, {
+      status: 'PASSENGER_ARRIVED',
+      passengerArrivedAt: createTimestamp(),
+    });
+  },
+
+  async startTrip(rideId: string, estimatedArrivalTime: string): Promise<void> {
+    await FirestoreService.updateDocument(COLLECTIONS.RIDES, rideId, {
+      status: 'TRIP_STARTED',
+      tripStartedAt: createTimestamp(),
+      estimatedArrivalTime,
+    });
+  },
+
+  async arrivedAtDestination(rideId: string): Promise<void> {
+    await FirestoreService.updateDocument(COLLECTIONS.RIDES, rideId, {
+      status: 'DESTINATION_REACHED',
+      destinationReachedAt: createTimestamp(),
+    });
+  },
+
+  async paymentCollected(rideId: string): Promise<void> {
+    // First update the ride status
+    await FirestoreService.updateDocument(COLLECTIONS.RIDES, rideId, {
+      status: 'COMPLETED',
+      paymentCollected: true,
+      rideCompletedAt: createTimestamp(),
+    });
+
+    // Then update all bookings for this ride to completed status
+    const bookings = await FirestoreService.queryDocuments<Booking>(
+      COLLECTIONS.BOOKINGS,
+      [{ field: 'rideId', operator: '==', value: rideId }]
+    );
+
+    const updatePromises = bookings.map(booking =>
+      FirestoreService.updateDocument(COLLECTIONS.BOOKINGS, booking.id, {
+        status: 'completed',
+        completedAt: createTimestamp(),
+      })
+    );
+
+    await Promise.all(updatePromises);
+  },
+
   subscribeToRide(rideId: string, callback: (ride: Ride | null) => void): Unsubscribe {
     return FirestoreService.subscribeToDocument<Ride>(COLLECTIONS.RIDES, rideId, callback);
+  },
+
+  async getAllRides(): Promise<Ride[]> {
+    return FirestoreService.getAllDocuments<Ride>(COLLECTIONS.RIDES);
+  },
+
+  async recalculateAvailableSeats(rideId: string): Promise<void> {
+    const ride = await this.getRide(rideId);
+    if (!ride) return;
+
+    const bookings = await bookingService.getBookingsByRide(rideId);
+    const confirmedBookings = bookings.filter(b => b.status === 'confirmed');
+    const bookedSeats = confirmedBookings.reduce((total, booking) => total + booking.seatsBooked, 0);
+    const correctAvailableSeats = ride.totalSeats - bookedSeats;
+
+    const updates: Partial<Ride> = { availableSeats: correctAvailableSeats };
+
+    // Update status based on bookings
+    if (bookedSeats > 0 && ride.status === 'AVAILABLE') {
+      updates.status = 'BOOKED';
+    } else if (bookedSeats === 0 && ride.status === 'BOOKED') {
+      updates.status = 'AVAILABLE';
+    }
+
+    await this.updateRide(rideId, updates);
   },
 };
 
@@ -395,28 +509,5 @@ export const ratingService = {
       COLLECTIONS.RATINGS,
       [{ field: 'bookingId', operator: '==', value: bookingId }]
     );
-  },
-};
-
-// Payment operations
-export const paymentService = {
-  async createPayment(paymentData: Omit<Payment, 'id'>): Promise<Payment> {
-    return FirestoreService.createDocumentWithId<Payment>(COLLECTIONS.PAYMENTS, paymentData);
-  },
-
-  async getPayment(paymentId: string): Promise<Payment | null> {
-    return FirestoreService.getDocument<Payment>(COLLECTIONS.PAYMENTS, paymentId);
-  },
-
-  async getPaymentsByBooking(bookingId: string): Promise<Payment[]> {
-    return FirestoreService.queryDocuments<Payment>(
-      COLLECTIONS.PAYMENTS,
-      [{ field: 'bookingId', operator: '==', value: bookingId }],
-      'createdAt'
-    );
-  },
-
-  async updatePayment(paymentId: string, updates: Partial<Payment>): Promise<void> {
-    await FirestoreService.updateDocument(COLLECTIONS.PAYMENTS, paymentId, updates);
   },
 };
