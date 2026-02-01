@@ -66,6 +66,10 @@ export interface Ride {
   destinationReachedAt?: Date;
   paymentCollected?: boolean;
   rideCompletedAt?: Date;
+  // Cancellation tracking
+  cancelledAt?: Date;
+  cancellationReason?: string;
+  cancelledBy?: string; // user ID of who cancelled
   createdAt: Date;
   updatedAt?: Date;
 }
@@ -82,7 +86,10 @@ export interface Booking {
   status: BookingStatus;
   bookedAt: Date;
   cancelledAt?: Date;
+  cancellationReason?: string;
+  cancelledBy?: 'passenger' | 'driver';
   completedAt?: Date;
+  updatedAt?: Date;
 }
 
 // Rating Types
@@ -110,4 +117,18 @@ export interface OTPVerification {
   otp: string;
   expiresAt: Date;
   verified: boolean;
+}
+
+// Notification Types
+export type NotificationType = 'booking_cancelled' | 'ride_cancelled' | 'ride_completed' | 'new_booking';
+
+export interface Notification {
+  id: string;
+  userId: string; // Recipient of the notification
+  type: NotificationType;
+  title: string;
+  message: string;
+  relatedId?: string; // bookingId, rideId, etc.
+  isRead: boolean;
+  createdAt: Date;
 }

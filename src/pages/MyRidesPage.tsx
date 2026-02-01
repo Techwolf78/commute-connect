@@ -13,6 +13,7 @@ import { format } from 'date-fns';
 import { Ride, RideStatus } from '@/types';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { rideService, bookingService } from '@/lib/firestore';
+import { CancellationForm } from '@/components/CancellationForm';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -62,12 +63,26 @@ const MyRidesPage = () => {
 
   const bookings = Array.isArray(bookingsData) ? bookingsData : [];
 
-  // Cancel ride mutation
-  const cancelRideMutation = useMutation({
-    mutationFn: (rideId: string) => rideService.updateRide(rideId, { status: 'COMPLETED' }),
+  // Cancel available ride mutation (no passengers, just remove)
+  const cancelAvailableRideMutation = useMutation({
+    mutationFn: (rideId: string) => rideService.updateRide(rideId, { status: 'EXPIRED' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['driver-rides'] });
-      toast({ title: 'Success', description: 'Ride cancelled successfully.' });
+      toast({ title: 'Success', description: 'Ride removed from available rides.' });
+    },
+    onError: () => {
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to remove ride.' });
+    },
+  });
+
+  // Cancel ride mutation (with passengers, requires form)
+  const cancelRideMutation = useMutation({
+    mutationFn: async ({ rideId, reason }: { rideId: string; reason: string }) =>
+      rideService.cancelRide(rideId, reason, user!.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['driver-rides'] });
+      queryClient.invalidateQueries({ queryKey: ['ride-bookings'] });
+      toast({ title: 'Success', description: 'Ride cancelled successfully. All passengers have been notified.' });
       setCancelRideId(null);
     },
     onError: () => {
@@ -154,8 +169,12 @@ const MyRidesPage = () => {
     );
   };
 
-  const handleCancelRide = (rideId: string) => {
-    cancelRideMutation.mutate(rideId);
+  const handleCancelRide = (rideId: string, reason: string) => {
+    cancelRideMutation.mutate({ rideId, reason });
+  };
+
+  const handleCancelAvailableRide = (rideId: string) => {
+    cancelAvailableRideMutation.mutate(rideId);
   };
 
   const handleCompleteRide = (rideId: string) => {
@@ -226,11 +245,11 @@ const MyRidesPage = () => {
             )}
 
             {/* Actions */}
-            {ride.status === 'BOOKED' && (
+            {ride.status === 'BOOKED' && rideBookings.length > 0 && (
               <div className="flex gap-2 pt-2">
                 {isPast ? (
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     className="flex-1"
                     onClick={() => handleCompleteRide(ride.id)}
                   >
@@ -239,16 +258,16 @@ const MyRidesPage = () => {
                   </Button>
                 ) : (
                   <>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
+                    <Button
+                      variant="outline"
+                      size="sm"
                       className="flex-1"
                       onClick={() => navigate(`/ride/${ride.id}`)}
                     >
                       View Details
                     </Button>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="sm"
                       className="text-destructive border-destructive/30"
                       onClick={() => setCancelRideId(ride.id)}
@@ -257,6 +276,28 @@ const MyRidesPage = () => {
                     </Button>
                   </>
                 )}
+              </div>
+            )}
+
+            {ride.status === 'AVAILABLE' && !isPast && (
+              <div className="flex gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => navigate(`/ride/${ride.id}`)}
+                >
+                  View Details
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-destructive border-destructive/30"
+                  onClick={() => handleCancelAvailableRide(ride.id)}
+                  disabled={cancelAvailableRideMutation.isPending}
+                >
+                  <XCircle className="h-4 w-4" />
+                </Button>
               </div>
             )}
           </div>
@@ -369,26 +410,15 @@ const MyRidesPage = () => {
         </Tabs>
       </div>
 
-      {/* Cancel Confirmation Dialog */}
-      <AlertDialog open={!!cancelRideId} onOpenChange={() => setCancelRideId(null)}>
-        <AlertDialogContent className="bg-popover">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Cancel Ride</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to cancel this ride? All passengers will be notified and refunded.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Keep Ride</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={() => cancelRideId && handleCancelRide(cancelRideId)}
-              className="bg-destructive text-destructive-foreground"
-            >
-              Cancel Ride
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Cancel Ride Form */}
+      <CancellationForm
+        isOpen={!!cancelRideId}
+        onClose={() => setCancelRideId(null)}
+        onConfirm={(reason) => cancelRideId && handleCancelRide(cancelRideId, reason)}
+        title="Cancel Ride"
+        description="Please provide a reason for cancelling this ride. All passengers will be notified."
+        isLoading={cancelRideMutation.isPending}
+      />
     </div>
   );
 };

@@ -26,7 +26,8 @@ import {
   Ride,
   Booking,
   Rating,
-  Location
+  Location,
+  Notification
 } from '../types';
 
 // Collection names
@@ -37,6 +38,7 @@ const COLLECTIONS = {
   RIDES: 'rides',
   BOOKINGS: 'bookings',
   RATINGS: 'ratings',
+  NOTIFICATIONS: 'notifications',
 } as const;
 
 // Utility functions
@@ -487,6 +489,39 @@ export const rideService = {
 
     await this.updateRide(rideId, updates);
   },
+
+  async cancelRide(rideId: string, reason: string, cancelledByUserId: string): Promise<void> {
+    const ride = await this.getRide(rideId);
+    if (!ride) throw new Error('Ride not found');
+
+    const updates: Partial<Ride> = {
+      status: 'EXPIRED', // Using EXPIRED status for cancelled rides
+      cancelledAt: new Date(),
+      cancellationReason: reason,
+      cancelledBy: cancelledByUserId,
+      updatedAt: new Date(),
+    };
+    await this.updateRide(rideId, updates);
+
+    // Also cancel all associated bookings and notify passengers
+    const bookings = await bookingService.getBookingsByRide(rideId);
+    const activeBookings = bookings.filter(b => b.status === 'confirmed' || b.status === 'pending');
+
+    for (const booking of activeBookings) {
+      await bookingService.cancelBooking(booking.id, `Ride cancelled by driver: ${reason}`, 'driver');
+    }
+
+    // Create notification for driver (confirmation)
+    await notificationService.createNotification({
+      userId: cancelledByUserId,
+      type: 'ride_cancelled',
+      title: 'Ride Cancelled',
+      message: `Your ride from ${ride.startLocation.name} to ${ride.endLocation.name} has been cancelled. All passengers have been notified.`,
+      relatedId: rideId,
+      isRead: false,
+      createdAt: new Date(),
+    });
+  },
 };
 
 // Booking operations
@@ -516,6 +551,84 @@ export const bookingService = {
   async updateBooking(bookingId: string, updates: Partial<Booking>): Promise<void> {
     await FirestoreService.updateDocument(COLLECTIONS.BOOKINGS, bookingId, updates);
   },
+
+  async cancelBooking(bookingId: string, reason: string, cancelledBy: 'passenger' | 'driver'): Promise<void> {
+    const booking = await this.getBooking(bookingId);
+    if (!booking) throw new Error('Booking not found');
+
+    const updates: Partial<Booking> = {
+      status: 'cancelled',
+      cancelledAt: new Date(),
+      cancellationReason: reason,
+      cancelledBy,
+      updatedAt: new Date(),
+    };
+    await this.updateBooking(bookingId, updates);
+
+    // Create notification for the other party
+    const ride = await rideService.getRide(booking.rideId);
+    if (!ride) return;
+
+    if (cancelledBy === 'passenger') {
+      // Notify driver
+      await notificationService.createNotification({
+        userId: ride.driverId,
+        type: 'booking_cancelled',
+        title: 'Booking Cancelled',
+        message: `A passenger has cancelled their booking for your ride from ${ride.startLocation.name} to ${ride.endLocation.name}. Reason: ${reason}`,
+        relatedId: bookingId,
+        isRead: false,
+        createdAt: new Date(),
+      });
+    } else {
+      // Notify passenger
+      await notificationService.createNotification({
+        userId: booking.passengerId,
+        type: 'booking_cancelled',
+        title: 'Booking Cancelled',
+        message: `Your booking for the ride from ${ride.startLocation.name} to ${ride.endLocation.name} has been cancelled by the driver. Reason: ${reason}`,
+        relatedId: bookingId,
+        isRead: false,
+        createdAt: new Date(),
+      });
+    }
+
+    // Update ride available seats
+    await rideService.recalculateAvailableSeats(booking.rideId);
+  },
+
+  async cancelRide(rideId: string, reason: string, cancelledByUserId: string): Promise<void> {
+    const ride = await rideService.getRide(rideId);
+    if (!ride) throw new Error('Ride not found');
+
+    const updates: Partial<Ride> = {
+      status: 'EXPIRED', // Using EXPIRED status for cancelled rides
+      cancelledAt: new Date(),
+      cancellationReason: reason,
+      cancelledBy: cancelledByUserId,
+      updatedAt: new Date(),
+    };
+    await rideService.updateRide(rideId, updates);
+
+    // Also cancel all associated bookings and notify passengers
+    const bookings = await this.getBookingsByRide(rideId);
+    const activeBookings = bookings.filter(b => b.status === 'confirmed' || b.status === 'pending');
+
+    for (const booking of activeBookings) {
+      await this.cancelBooking(booking.id, `Ride cancelled by driver: ${reason}`, 'driver');
+    }
+
+    // Create notification for driver (confirmation)
+    await notificationService.createNotification({
+      userId: cancelledByUserId,
+      type: 'ride_cancelled',
+      title: 'Ride Cancelled',
+      message: `Your ride from ${ride.startLocation.name} to ${ride.endLocation.name} has been cancelled. All passengers have been notified.`,
+      relatedId: rideId,
+      isRead: false,
+      createdAt: new Date(),
+    });
+  },
 };
 
 // Rating operations
@@ -541,5 +654,41 @@ export const ratingService = {
       COLLECTIONS.RATINGS,
       [{ field: 'bookingId', operator: '==', value: bookingId }]
     );
+  },
+};
+
+// Notification operations
+export const notificationService = {
+  async createNotification(notificationData: Omit<Notification, 'id'>): Promise<Notification> {
+    return FirestoreService.createDocumentWithId<Notification>(COLLECTIONS.NOTIFICATIONS, notificationData);
+  },
+
+  async getNotificationsForUser(userId: string): Promise<Notification[]> {
+    return FirestoreService.queryDocuments<Notification>(
+      COLLECTIONS.NOTIFICATIONS,
+      [{ field: 'userId', operator: '==', value: userId }],
+      'createdAt'
+    );
+  },
+
+  async markNotificationAsRead(notificationId: string): Promise<void> {
+    await FirestoreService.updateDocument(COLLECTIONS.NOTIFICATIONS, notificationId, {
+      isRead: true,
+      updatedAt: new Date(),
+    });
+  },
+
+  async markAllNotificationsAsRead(userId: string): Promise<void> {
+    const notifications = await this.getNotificationsForUser(userId);
+    const unreadNotifications = notifications.filter(n => !n.isRead);
+
+    for (const notification of unreadNotifications) {
+      await this.markNotificationAsRead(notification.id);
+    }
+  },
+
+  async getUnreadNotificationCount(userId: string): Promise<number> {
+    const notifications = await this.getNotificationsForUser(userId);
+    return notifications.filter(n => !n.isRead).length;
   },
 };

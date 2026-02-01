@@ -13,6 +13,8 @@ import { format, isPast } from 'date-fns';
 import { Booking, BookingStatus, Ride, User, Driver } from '@/types';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { bookingService, rideService, userService, driverService, ratingService } from '@/lib/firestore';
+import { CancellationForm } from '@/components/CancellationForm';
+import { BookingCard } from '@/components/BookingCard';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,7 +25,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { BookingCard } from '@/components/BookingCard';
 
 const MyBookingsPage = () => {
   const navigate = useNavigate();
@@ -74,10 +75,11 @@ const MyBookingsPage = () => {
 
   // Cancel booking mutation
   const cancelBookingMutation = useMutation({
-    mutationFn: (bookingId: string) => bookingService.updateBooking(bookingId, { status: 'cancelled' }),
+    mutationFn: async ({ bookingId, reason }: { bookingId: string; reason: string }) =>
+      bookingService.cancelBooking(bookingId, reason, 'passenger'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-bookings-full'] });
-      toast({ title: 'Success', description: 'Booking cancelled successfully.' });
+      toast({ title: 'Success', description: 'Booking cancelled successfully. The driver has been notified.' });
       setCancelBookingId(null);
     },
     onError: () => {
@@ -103,8 +105,8 @@ const MyBookingsPage = () => {
   const completedBookings = userBookings.filter(item => item!.booking.status === 'completed');
   const cancelledBookings = userBookings.filter(item => item!.booking.status === 'cancelled');
 
-  const handleCancelBooking = (bookingId: string) => {
-    cancelBookingMutation.mutate(bookingId);
+  const handleCancelBooking = (bookingId: string, reason: string) => {
+    cancelBookingMutation.mutate({ bookingId, reason });
   };
 
   const EmptyState = ({ message }: { message: string }) => (
@@ -208,26 +210,15 @@ const MyBookingsPage = () => {
         </Tabs>
       </div>
 
-      {/* Cancel Confirmation Dialog */}
-      <AlertDialog open={!!cancelBookingId} onOpenChange={() => setCancelBookingId(null)}>
-        <AlertDialogContent className="bg-popover">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Cancel Booking</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to cancel this booking? A full refund will be processed.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Keep Booking</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={() => cancelBookingId && handleCancelBooking(cancelBookingId)}
-              className="bg-destructive text-destructive-foreground"
-            >
-              Cancel Booking
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Cancel Booking Form */}
+      <CancellationForm
+        isOpen={!!cancelBookingId}
+        onClose={() => setCancelBookingId(null)}
+        onConfirm={(reason) => cancelBookingId && handleCancelBooking(cancelBookingId, reason)}
+        title="Cancel Booking"
+        description="Please provide a reason for cancelling this booking. The driver will be notified."
+        isLoading={cancelBookingMutation.isPending}
+      />
     </div>
   );
 };

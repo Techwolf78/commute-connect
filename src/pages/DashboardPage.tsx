@@ -650,6 +650,8 @@ const DashboardPage = () => {
             <div className="space-y-3">
               {userBookingsData?.completed
                 ?.filter(item => item && item.booking && item.ride)
+                .sort((a, b) => new Date(b.booking.bookedAt).getTime() - new Date(a.booking.bookedAt).getTime())
+                .slice(0, 1)
                 .map((item) => (
                 <BookingCard
                   key={item.booking.id}
