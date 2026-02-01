@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { rideService, bookingService } from '@/lib/firestore';
+import { rideService, bookingService, userService, driverService } from '@/lib/firestore';
 import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
 import { cn, shouldAutoCompleteRide } from '@/lib/utils';
@@ -9,13 +9,13 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Clock, MapPin, ArrowRight, Users, Car, Calendar, Search, Plus, ChevronRight, CheckCircle2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Ride, Booking } from '@/types';
+import { Ride, Booking, User, Driver } from '@/types';
 import { BookingCard } from '@/components/BookingCard';
 
 // Type for user bookings data
 type UserBookingsData = {
-  upcoming: { booking: Booking; ride: Ride }[];
-  completed: { booking: Booking; ride: Ride }[];
+  upcoming: { booking: Booking; ride: Ride; driver?: User; driverInfo?: Driver }[];
+  completed: { booking: Booking; ride: Ride; driver?: User; driverInfo?: Driver }[];
 };
 
 // Type for today's ride data
@@ -114,7 +114,7 @@ const TodaysRideCard = ({ ride, booking, isDriver }: { ride: Ride; booking?: Boo
             {ride.estimatedArrivalTime && (
               <>
                 <ArrowRight className="h-4 w-4" />
-                <span>ETA: {ride.estimatedArrivalTime}</span>
+                <span>ETA: {format(getDateFromTimestamp(ride.estimatedArrivalTime), 'h:mm a')}</span>
               </>
             )}
           </div>
@@ -124,7 +124,7 @@ const TodaysRideCard = ({ ride, booking, isDriver }: { ride: Ride; booking?: Boo
           {ride.status === 'BOOKED' && ride.estimatedArrivalTime && (
             <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
               <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                Estimated arrival: {ride.estimatedArrivalTime}
+                Estimated arrival: {format(getDateFromTimestamp(ride.estimatedArrivalTime), 'h:mm a')}
               </p>
             </div>
           )}
@@ -311,7 +311,20 @@ const DashboardPage = () => {
             console.log('🔍 DashboardPage: Fetching ride for confirmed booking:', booking.id, 'rideId:', booking.rideId);
             const ride = await rideService.getRide(booking.rideId);
             console.log('✅ DashboardPage: Got ride for confirmed booking:', booking.id, 'ride:', ride);
-            return { booking, ride };
+            
+            // Fetch driver information
+            let driver: User | undefined;
+            let driverInfo: Driver | undefined;
+            if (ride) {
+              try {
+                driver = await userService.getUser(ride.driverId);
+                driverInfo = await driverService.getDriver(ride.driverId);
+              } catch (error) {
+                console.error('❌ DashboardPage: Error fetching driver for booking:', booking.id, error);
+              }
+            }
+            
+            return { booking, ride, driver, driverInfo };
           } catch (error) {
             console.error('❌ DashboardPage: Error fetching ride for confirmed booking:', booking.id, error);
             return null;
@@ -326,7 +339,20 @@ const DashboardPage = () => {
             console.log('🔍 DashboardPage: Fetching ride for completed booking:', booking.id, 'rideId:', booking.rideId);
             const ride = await rideService.getRide(booking.rideId);
             console.log('✅ DashboardPage: Got ride for completed booking:', booking.id, 'ride:', ride);
-            return { booking, ride };
+            
+            // Fetch driver information
+            let driver: User | undefined;
+            let driverInfo: Driver | undefined;
+            if (ride) {
+              try {
+                driver = await userService.getUser(ride.driverId);
+                driverInfo = await driverService.getDriver(ride.driverId);
+              } catch (error) {
+                console.error('❌ DashboardPage: Error fetching driver for booking:', booking.id, error);
+              }
+            }
+            
+            return { booking, ride, driver, driverInfo };
           } catch (error) {
             console.error('❌ DashboardPage: Error fetching ride for completed booking:', booking.id, error);
             return null;
@@ -598,6 +624,8 @@ const DashboardPage = () => {
                   key={item.booking.id}
                   booking={item.booking}
                   ride={item.ride}
+                  driver={item.driver}
+                  driverInfo={item.driverInfo}
                 />
               ))}
             </div>
@@ -627,6 +655,8 @@ const DashboardPage = () => {
                   key={item.booking.id}
                   booking={item.booking}
                   ride={item.ride}
+                  driver={item.driver}
+                  driverInfo={item.driverInfo}
                 />
               ))}
             </div>

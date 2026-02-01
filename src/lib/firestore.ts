@@ -393,7 +393,7 @@ export const rideService = {
     });
   },
 
-  async startTrip(rideId: string, estimatedArrivalTime: string): Promise<void> {
+  async startTrip(rideId: string, estimatedArrivalTime: Date | string): Promise<void> {
     await FirestoreService.updateDocument(COLLECTIONS.RIDES, rideId, {
       status: 'TRIP_STARTED',
       tripStartedAt: createTimestamp(),

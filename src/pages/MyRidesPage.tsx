@@ -75,6 +75,35 @@ const MyRidesPage = () => {
     },
   });
 
+  // Complete ride mutation
+  const completeRideMutation = useMutation({
+    mutationFn: async (rideId: string) => {
+      // Update ride status to COMPLETED
+      await rideService.updateRide(rideId, { 
+        status: 'COMPLETED',
+        destinationReachedAt: new Date()
+      });
+      
+      // Update all confirmed bookings to completed
+      const rideBookings = bookings.filter(b => b.rideId === rideId && b.status === 'confirmed');
+      for (const booking of rideBookings) {
+        await bookingService.updateBooking(booking.id, { 
+          status: 'completed',
+          completedAt: new Date()
+        });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['driver-rides'] });
+      queryClient.invalidateQueries({ queryKey: ['ride-bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['user-bookings'] });
+      toast({ title: 'Success', description: 'Ride completed successfully!' });
+    },
+    onError: () => {
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to complete ride.' });
+    },
+  });
+
   if (ridesLoading || bookingsLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -130,12 +159,7 @@ const MyRidesPage = () => {
   };
 
   const handleCompleteRide = (rideId: string) => {
-    // This would typically be handled automatically or by admin
-    // For now, just show a message
-    toast({
-      title: 'Ride Completed',
-      description: 'Great job! The ride has been marked as complete.',
-    });
+    completeRideMutation.mutate(rideId);
   };
 
   const RideCard = ({ ride }: { ride: Ride }) => {

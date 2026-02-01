@@ -12,10 +12,10 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
-import { isRideExpired } from '@/lib/utils';
+import { isRideExpired, getDateFromTimestamp } from '@/lib/utils';
 import { Booking } from '@/types';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { rideService, userService, driverService, vehicleService, bookingService } from '@/lib/firestore';
+import { rideService, userService, driverService, vehicleService, bookingService, ratingService } from '@/lib/firestore';
 import {
   Dialog,
   DialogContent,
@@ -34,6 +34,8 @@ const RideDetailsPage = () => {
   const [seatsToBook, setSeatsToBook] = useState('1');
   const [isBooking, setIsBooking] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [rating, setRating] = useState(0);
+  const [isSubmittingRating, setIsSubmittingRating] = useState(false);
   
   // Fetch ride details
   const { data: ride, isLoading: rideLoading } = useQuery({
@@ -71,6 +73,91 @@ const RideDetailsPage = () => {
   });
 
   const existingBookings = existingBookingsData ?? [];
+
+  // Fetch passenger details for confirmed bookings
+  const { data: passengersData } = useQuery({
+    queryKey: ['ride-passengers', id],
+    queryFn: async () => {
+      const confirmedBookings = existingBookings.filter(booking => booking.status === 'confirmed');
+      const passengerPromises = confirmedBookings.map(async (booking) => {
+        try {
+          const passenger = await userService.getUser(booking.passengerId);
+          return {
+            booking,
+            passenger
+          };
+        } catch (error) {
+          console.error('Error fetching passenger:', booking.passengerId, error);
+          return null;
+        }
+      });
+      const passengers = await Promise.all(passengerPromises);
+      return passengers.filter(p => p !== null);
+    },
+    enabled: !!existingBookings.length,
+  });
+
+  const passengers = passengersData ?? [];
+
+  // Fetch existing ratings for this ride by the current user
+  const { data: existingRating } = useQuery({
+    queryKey: ['user-rating', id, user?.id],
+    queryFn: async () => {
+      if (!user?.id || !id) return null;
+      const ratings = await ratingService.getRatingsForUser(user.id);
+      return ratings.find(r => r.rideId === id) || null;
+    },
+    enabled: !!user?.id && !!id && !!ride && ride.status === 'COMPLETED',
+  });
+
+  const submitRatingMutation = useMutation({
+    mutationFn: async (ratingValue: number) => {
+      if (!user?.id || !userBooking) {
+        throw new Error('User not authenticated or booking not found');
+      }
+
+      return ratingService.createRating({
+        bookingId: userBooking.id,
+        rideId: ride.id,
+        fromUserId: user.id,
+        toUserId: ride.driverId,
+        rating: ratingValue,
+        createdAt: new Date(),
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Rating Submitted',
+        description: 'Thank you for rating this ride!',
+      });
+      queryClient.invalidateQueries({ queryKey: ['user-rating'] });
+      setRating(0);
+    },
+    onError: (error) => {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to submit rating. Please try again.',
+      });
+    },
+    onSettled: () => {
+      setIsSubmittingRating(false);
+    },
+  });
+
+  const handleSubmitRating = () => {
+    if (rating < 4 || rating > 5) {
+      toast({
+        variant: 'destructive',
+        title: 'Invalid Rating',
+        description: 'Please select a rating between 4 and 5 stars.',
+      });
+      return;
+    }
+
+    setIsSubmittingRating(true);
+    submitRatingMutation.mutate(rating);
+  };
 
   // Create booking mutation
   const createBookingMutation = useMutation({
@@ -120,6 +207,14 @@ const RideDetailsPage = () => {
 
   const isOwnRide = ride.driverId === user?.id;
   const totalCost = parseInt(seatsToBook) * ride.costPerSeat;
+
+  // Check if user has booked this ride
+  const userBooking = existingBookings.find(booking => booking.passengerId === user?.id && booking.status === 'confirmed');
+  const hasUserBooked = !!userBooking;
+
+  // Check if ride is completed and user can rate it
+  const isRideCompleted = ride.status === 'COMPLETED';
+  const canRateRide = hasUserBooked && isRideCompleted && !isOwnRide;
 
   const handleBookRide = async () => {
     if (!user) {
@@ -197,11 +292,25 @@ const RideDetailsPage = () => {
             <div className="flex items-center gap-2 text-sm">
               <Clock className="h-4 w-4 text-muted-foreground" />
               <span className="font-medium">
-                {format(ride.departureTime, 'EEEE, MMMM d, yyyy')}
+                {(() => {
+                  try {
+                    const depDate = getDateFromTimestamp(ride.departureTime);
+                    return isNaN(depDate.getTime()) ? 'Invalid date' : format(depDate, 'EEEE, MMMM d, yyyy');
+                  } catch (error) {
+                    return 'Invalid date';
+                  }
+                })()}
               </span>
               <span className="text-muted-foreground">at</span>
               <span className="font-medium">
-                {format(ride.departureTime, 'h:mm a')}
+                {(() => {
+                  try {
+                    const depDate = getDateFromTimestamp(ride.departureTime);
+                    return isNaN(depDate.getTime()) ? 'Invalid time' : format(depDate, 'h:mm a');
+                  } catch (error) {
+                    return 'Invalid time';
+                  }
+                })()}
               </span>
             </div>
 
@@ -212,13 +321,43 @@ const RideDetailsPage = () => {
                 <div className="w-3 h-3 rounded-full bg-muted-foreground" />
               </div>
               <div className="flex-1 space-y-4">
-                <div>
-                  <p className="font-semibold">{ride.startLocation.name}</p>
-                  <p className="text-sm text-muted-foreground">{ride.startLocation.address}</p>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1">
+                    <p className="font-semibold">{ride.startLocation.name}</p>
+                    <p className="text-sm text-muted-foreground">{ride.startLocation.address}</p>
+                  </div>
+                  <div className="text-right">
+                    <div className="flex items-center gap-1 text-sm font-medium">
+                      <Clock className="h-3 w-3" />
+                      {(() => {
+                        try {
+                          const depDate = getDateFromTimestamp(ride.departureTime);
+                          return isNaN(depDate.getTime()) ? '~' : format(depDate, 'h:mm a');
+                        } catch (error) {
+                          return '~';
+                        }
+                      })()}
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-semibold">{ride.endLocation.name}</p>
-                  <p className="text-sm text-muted-foreground">{ride.endLocation.address}</p>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1">
+                    <p className="font-semibold">{ride.endLocation.name}</p>
+                    <p className="text-sm text-muted-foreground">{ride.endLocation.address}</p>
+                  </div>
+                  <div className="text-right">
+                    <div className="flex items-center gap-1 text-sm font-medium text-muted-foreground">
+                      <Clock className="h-3 w-3" />
+                      {ride.estimatedArrivalTime ? (() => {
+                        try {
+                          const arrivalDate = getDateFromTimestamp(ride.estimatedArrivalTime);
+                          return isNaN(arrivalDate.getTime()) ? '~' : format(arrivalDate, 'h:mm a');
+                        } catch (error) {
+                          return '~';
+                        }
+                      })() : '~'}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -297,6 +436,43 @@ const RideDetailsPage = () => {
           </Card>
         )}
 
+        {/* Passenger List - Show for drivers */}
+        {isOwnRide && passengers.length > 0 && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Passengers ({passengers.length})</CardTitle>
+            </CardHeader>
+            <CardContent className="pb-4">
+              <div className="space-y-3">
+                {passengers.map(({ booking, passenger }) => (
+                  <div key={booking.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                        <User className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium">{passenger?.name || 'Unknown Passenger'}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {booking.seatsBooked} seat{booking.seatsBooked !== 1 ? 's' : ''} • ₹{booking.amountToPayDriver}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        booking.status === 'confirmed'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {booking.status}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Booking Section */}
         {!isOwnRide && ride.availableSeats > 0 && (
           <>
@@ -358,6 +534,79 @@ const RideDetailsPage = () => {
               )}
             </Button>
           </>
+        )}
+
+        {/* Rating Section - Show only for completed rides that user has booked */}
+        {canRateRide && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Rate Your Ride</CardTitle>
+            </CardHeader>
+            <CardContent className="pb-4">
+              {existingRating ? (
+                <div className="text-center py-4">
+                  <div className="flex items-center justify-center gap-1 mb-2">
+                    {[...Array(5)].map((_, i) => (
+                      <Star
+                        key={i}
+                        className={`h-6 w-6 ${
+                          i < existingRating.rating
+                            ? 'fill-yellow-400 text-yellow-400'
+                            : 'text-gray-300'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    You rated this ride {existingRating.rating} star{existingRating.rating !== 1 ? 's' : ''}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground text-center">
+                    How was your ride experience?
+                  </p>
+                  <div className="flex items-center justify-center gap-2">
+                    {[4, 5].map((star) => (
+                      <button
+                        key={star}
+                        onClick={() => setRating(star)}
+                        className={`p-2 rounded-full transition-colors ${
+                          rating === star
+                            ? 'bg-yellow-100 text-yellow-600'
+                            : 'hover:bg-gray-100 text-gray-400'
+                        }`}
+                      >
+                        <Star
+                          className={`h-8 w-8 ${
+                            rating === star ? 'fill-yellow-400 text-yellow-400' : ''
+                          }`}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                  <div className="text-center text-sm text-muted-foreground">
+                    {rating === 4 && "Good ride"}
+                    {rating === 5 && "Excellent ride"}
+                  </div>
+                  <Button
+                    className="w-full"
+                    onClick={handleSubmitRating}
+                    disabled={!rating || isSubmittingRating}
+                  >
+                    {isSubmittingRating ? (
+                      <span className="flex items-center gap-2">
+                        <span className="animate-spin rounded-full h-4 w-4 border-2 border-primary-foreground border-t-transparent" />
+                        Submitting...
+                      </span>
+                    ) : (
+                      'Submit Rating'
+                    )}
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         )}
 
         {isOwnRide && (

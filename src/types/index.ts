@@ -62,7 +62,7 @@ export interface Ride {
   pickupReachedAt?: Date;
   passengerArrivedAt?: Date;
   tripStartedAt?: Date;
-  estimatedArrivalTime?: string; // Static ETA calculated once
+  estimatedArrivalTime?: Date; // Static ETA calculated once
   destinationReachedAt?: Date;
   paymentCollected?: boolean;
   rideCompletedAt?: Date;

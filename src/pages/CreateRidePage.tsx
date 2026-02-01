@@ -182,9 +182,11 @@ const CreateRidePage = () => {
         departureTime
       );
 
-      const estimatedArrivalTime = etaResult ? format(etaResult.arrivalTime, 'h:mm a') : undefined;
+      // Fallback ETA if Google Maps fails: add 1 hour to departure time
+      const fallbackArrivalTime = new Date(departureTime.getTime() + 60 * 60 * 1000);
+      const estimatedArrivalTime = etaResult ? etaResult.arrivalTime : fallbackArrivalTime;
 
-      console.log('📍 CreateRidePage: ETA calculated:', estimatedArrivalTime);
+      console.log('📍 CreateRidePage: ETA calculated:', format(estimatedArrivalTime, 'h:mm a'), etaResult?.isFromGoogleMaps ? '(from Google Maps)' : '(fallback estimate)');
 
       await rideService.createRide({
         driverId: user!.id,
