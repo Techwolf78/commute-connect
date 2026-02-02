@@ -845,6 +845,24 @@ export const chatService = {
     return totalUnread;
   },
 
+  // Get unread message counts per chat for a user
+  async getUnreadCountsPerChat(userId: string): Promise<{ [chatId: string]: number }> {
+    const unreadMessages = await FirestoreService.queryDocuments<Message>(
+      COLLECTIONS.MESSAGES,
+      [
+        { field: 'senderId', operator: '!=', value: userId },
+        { field: 'isRead', operator: '==', value: false }
+      ]
+    );
+
+    const counts: { [chatId: string]: number } = {};
+    unreadMessages.forEach(message => {
+      counts[message.chatId] = (counts[message.chatId] || 0) + 1;
+    });
+
+    return counts;
+  },
+
   // Listen to messages in real-time
   listenToMessages(chatId: string, callback: (messages: Message[]) => void): Unsubscribe {
     return FirestoreService.subscribeToCollection(

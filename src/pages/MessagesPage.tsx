@@ -26,6 +26,13 @@ const MessagesPage = () => {
     enabled: !!user?.id,
   });
 
+  // Get unread counts per chat
+  const { data: unreadCounts } = useQuery({
+    queryKey: ['unread-counts-per-chat', user?.id],
+    queryFn: () => chatService.getUnreadCountsPerChat(user!.id),
+    enabled: !!user?.id,
+  });
+
   // Fetch participant details for each chat
   const { data: chatParticipants } = useQuery({
     queryKey: ['chat-participants', chats?.map(c => c.id)],
@@ -83,8 +90,8 @@ const MessagesPage = () => {
               const participant = chatParticipants?.[chat.id];
               const otherParticipantId = chat.participants.find(id => id !== user?.id);
 
-              // Calculate unread count for this chat (simplified - in real app you'd track this)
-              const unreadForThisChat = 0; // TODO: Implement per-chat unread count
+              // Get unread count for this chat
+              const unreadForThisChat = unreadCounts?.[chat.id] || 0;
 
               return (
                 <div

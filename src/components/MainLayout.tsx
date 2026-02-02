@@ -54,7 +54,7 @@ const MainLayout = () => {
               >
                 <div className="relative">
                   <item.icon className={cn('h-4 w-4 md:h-5 md:w-5', isActive && 'stroke-[2.5px]')} />
-                  {item.badge && item.badge > 0 && (
+                  {item.badge > 0 && (
                     <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 flex items-center justify-center">
                       <span className="text-xs font-medium text-white">
                         {item.badge > 9 ? '9+' : item.badge}
