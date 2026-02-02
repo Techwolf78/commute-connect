@@ -145,9 +145,8 @@ export interface Chat {
 
 export interface Message {
   id: string;
-  chatId: string;
-  senderId: string;
-  text: string;
-  timestamp: Date;
+  t: string; // text
+  s: string; // senderId
+  c: Date; // timestamp
   isRead: boolean;
 }

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, MessageCircle, User } from 'lucide-react';
@@ -13,26 +13,58 @@ const MessagesPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  // Fetch all chats for the user
-  const { data: chats, isLoading } = useQuery({
-    queryKey: ['user-chats', user?.id],
-    queryFn: () => chatService.getChatsForUser(user!.id),
-    enabled: !!user?.id,
-  });
+  const [chats, setChats] = useState<Chat[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadCounts, setUnreadCounts] = useState<{ [chatId: string]: number }>({});
 
-  // Get unread message count
-  const { data: unreadCount } = useQuery({
-    queryKey: ['unread-messages', user?.id],
-    queryFn: () => chatService.getUnreadMessageCount(user!.id),
-    enabled: !!user?.id,
-  });
+  const messageUnsubscribersRef = useRef<{ [chatId: string]: () => void }>({});
 
-  // Get unread counts per chat
-  const { data: unreadCounts } = useQuery({
-    queryKey: ['unread-counts-per-chat', user?.id],
-    queryFn: () => chatService.getUnreadCountsPerChat(user!.id),
-    enabled: !!user?.id,
-  });
+  // Listen to user chats in real-time
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const unsubscribe = chatService.listenToUserChats(user.id, (updatedChats) => {
+      setChats(updatedChats);
+      setIsLoading(false);
+    });
+
+    return unsubscribe;
+  }, [user?.id]);
+
+  // Set up listeners for unread messages in each chat
+  useEffect(() => {
+    if (!user?.id || !chats.length) return;
+
+    const newUnsubscribers: { [chatId: string]: () => void } = {};
+
+    chats.forEach((chat) => {
+      const unsubscribe = chatService.listenToMessages(chat.id, (messages) => {
+        const unreadForChat = messages.filter(
+          (msg) => msg.s !== user.id && !msg.isRead
+        ).length;
+        setUnreadCounts((prev) => ({
+          ...prev,
+          [chat.id]: unreadForChat,
+        }));
+      });
+      newUnsubscribers[chat.id] = unsubscribe;
+    });
+
+    // Clean up previous unsubscribers
+    Object.values(messageUnsubscribersRef.current).forEach((unsub) => unsub());
+    messageUnsubscribersRef.current = newUnsubscribers;
+
+    return () => {
+      Object.values(newUnsubscribers).forEach((unsub) => unsub());
+    };
+  }, [chats, user?.id]);
+
+  // Update total unread count when unreadCounts change
+  useEffect(() => {
+    const total = Object.values(unreadCounts).reduce((sum, count) => sum + count, 0);
+    setUnreadCount(total);
+  }, [unreadCounts]);
 
   // Fetch participant details for each chat
   const { data: chatParticipants } = useQuery({

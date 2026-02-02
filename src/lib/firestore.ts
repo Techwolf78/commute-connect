@@ -250,6 +250,82 @@ export class FirestoreService {
       }
     });
   }
+
+  // Subscribe to subcollection changes
+  static subscribeToSubcollection<T>(
+    parentCollection: string,
+    parentId: string,
+    subcollection: string,
+    callback: (data: T[]) => void,
+    conditions?: Array<{
+      field: string;
+      operator: '==' | '!=' | '<' | '<=' | '>' | '>=' | 'array-contains' | 'in' | 'not-in' | 'array-contains-any';
+      value: unknown;
+    }>,
+    orderByField?: string,
+    orderDirection: 'asc' | 'desc' = 'desc'
+  ): Unsubscribe {
+    const parentDoc = doc(db, parentCollection, parentId);
+    let q: Query<DocumentData, DocumentData> = collection(parentDoc, subcollection);
+
+    // Apply where conditions
+    if (conditions) {
+      conditions.forEach(({ field, operator, value }) => {
+        q = query(q, where(field, operator, value));
+      });
+    }
+
+    // Apply ordering
+    if (orderByField) {
+      q = query(q, orderBy(orderByField, orderDirection));
+    }
+
+    return onSnapshot(q, (querySnapshot) => {
+      const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() ? convertTimestampsToDates(doc.data()) as Record<string, unknown> : {}) } as T));
+      callback(data);
+    });
+  }
+
+  // Query subcollection documents
+  static async queryDocumentsSubcollection<T>(
+    parentCollection: string,
+    parentId: string,
+    subcollection: string,
+    conditions?: Array<{
+      field: string;
+      operator: '==' | '!=' | '<' | '<=' | '>' | '>=' | 'array-contains' | 'in' | 'not-in' | 'array-contains-any';
+      value: unknown;
+    }>,
+    orderByField?: string,
+    orderDirection: 'asc' | 'desc' = 'desc',
+    limitCount?: number
+  ): Promise<T[]> {
+    const parentDoc = doc(db, parentCollection, parentId);
+    let q: Query<DocumentData, DocumentData> = collection(parentDoc, subcollection);
+
+    // Apply where conditions
+    if (conditions) {
+      conditions.forEach(({ field, operator, value }) => {
+        q = query(q, where(field, operator, value));
+      });
+    }
+
+    // Apply ordering
+    if (orderByField) {
+      q = query(q, orderBy(orderByField, orderDirection));
+    }
+
+    // Apply limit
+    if (limitCount) {
+      q = query(q, limit(limitCount));
+    }
+
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => {
+      const data = doc.data();
+      return { id: doc.id, ...(data ? convertTimestampsToDates(data) as Record<string, unknown> : {}) } as T;
+    });
+  }
 }
 
 // User operations
@@ -790,18 +866,17 @@ export const chatService = {
   async sendMessage(chatId: string, senderId: string, text: string): Promise<Message> {
     console.log('🔥 chatService: sendMessage called with:', { chatId, senderId, text });
 
-    const messageData: Omit<Message, 'id'> = {
-      chatId,
-      senderId,
-      text: text.trim(),
-      timestamp: new Date(),
+    const messageData = {
+      t: text.trim(),
+      s: senderId,
+      c: createTimestamp(),
       isRead: false,
     };
 
     console.log('🔥 chatService: messageData:', messageData);
 
-    const messageId = await FirestoreService.createDocumentWithId(COLLECTIONS.MESSAGES, messageData);
-    console.log('🔥 chatService: messageId from createDocumentWithId:', messageId.id);
+    const messageRef = await addDoc(collection(db, COLLECTIONS.MESSAGES, chatId, 'items'), messageData);
+    console.log('🔥 chatService: messageId from addDoc:', messageRef.id);
 
     // Update chat's last message
     await FirestoreService.updateDocument(COLLECTIONS.CHATS, chatId, {
@@ -810,35 +885,40 @@ export const chatService = {
     });
     console.log('🔥 chatService: updated chat lastMessage');
 
-    const result = messageId;
+    const result: Message = { id: messageRef.id, t: text.trim(), s: senderId, c: new Date(), isRead: false };
     console.log('🔥 chatService: returning result:', result);
     return result;
   },
 
   // Get messages for a chat
   async getMessagesForChat(chatId: string): Promise<Message[]> {
-    return FirestoreService.queryDocuments<Message>(
+    return FirestoreService.queryDocumentsSubcollection<Message>(
       COLLECTIONS.MESSAGES,
-      [{ field: 'chatId', operator: '==', value: chatId }],
-      [{ field: 'timestamp', direction: 'asc' }]
+      chatId,
+      'items',
+      [],
+      'c',
+      'asc'
     );
   },
 
   // Mark messages as read for a chat
   async markMessagesAsRead(chatId: string, userId: string): Promise<void> {
     // Get all unread messages in this chat that are not sent by the current user
-    const messages = await FirestoreService.queryDocuments<Message>(
+    const messages = await FirestoreService.queryDocumentsSubcollection<Message>(
       COLLECTIONS.MESSAGES,
+      chatId,
+      'items',
       [
-        { field: 'chatId', operator: '==', value: chatId },
-        { field: 'senderId', operator: '!=', value: userId },
+        { field: 's', operator: '!=', value: userId },
         { field: 'isRead', operator: '==', value: false }
       ]
     );
 
     // Mark each message as read
     for (const message of messages) {
-      await FirestoreService.updateDocument(COLLECTIONS.MESSAGES, message.id, {
+      const messageRef = doc(db, COLLECTIONS.MESSAGES, chatId, 'items', message.id);
+      await updateDoc(messageRef, {
         isRead: true
       });
     }
@@ -850,11 +930,12 @@ export const chatService = {
     let totalUnread = 0;
 
     for (const chat of chats) {
-      const unreadMessages = await FirestoreService.queryDocuments<Message>(
+      const unreadMessages = await FirestoreService.queryDocumentsSubcollection<Message>(
         COLLECTIONS.MESSAGES,
+        chat.id,
+        'items',
         [
-          { field: 'chatId', operator: '==', value: chat.id },
-          { field: 'senderId', operator: '!=', value: userId },
+          { field: 's', operator: '!=', value: userId },
           { field: 'isRead', operator: '==', value: false }
         ]
       );
@@ -870,11 +951,12 @@ export const chatService = {
     const counts: { [chatId: string]: number } = {};
 
     for (const chat of chats) {
-      const unreadMessages = await FirestoreService.queryDocuments<Message>(
+      const unreadMessages = await FirestoreService.queryDocumentsSubcollection<Message>(
         COLLECTIONS.MESSAGES,
+        chat.id,
+        'items',
         [
-          { field: 'chatId', operator: '==', value: chat.id },
-          { field: 'senderId', operator: '!=', value: userId },
+          { field: 's', operator: '!=', value: userId },
           { field: 'isRead', operator: '==', value: false }
         ]
       );
@@ -888,11 +970,13 @@ export const chatService = {
 
   // Listen to messages in real-time
   listenToMessages(chatId: string, callback: (messages: Message[]) => void): Unsubscribe {
-    return FirestoreService.subscribeToCollection(
+    return FirestoreService.subscribeToSubcollection(
       COLLECTIONS.MESSAGES,
+      chatId,
+      'items',
       callback,
-      [{ field: 'chatId', operator: '==', value: chatId }],
-      'timestamp',
+      [],
+      'c',
       'asc'
     );
   },

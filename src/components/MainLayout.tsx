@@ -1,11 +1,11 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import { Home, Search, Calendar, Car, User, Plus, MessageCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { useQuery } from '@tanstack/react-query';
 import { chatService } from '@/lib/firestore';
+import { Chat } from '@/types';
 
 const MainLayout = () => {
   const location = useLocation();
@@ -13,12 +13,56 @@ const MainLayout = () => {
   
   const isDriver = user?.role === 'driver';
 
-  // Get unread message count
-  const { data: unreadCount } = useQuery({
-    queryKey: ['unread-messages', user?.id],
-    queryFn: () => chatService.getUnreadMessageCount(user!.id),
-    enabled: !!user?.id,
-  });
+  const [chats, setChats] = useState<Chat[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadCounts, setUnreadCounts] = useState<{ [chatId: string]: number }>({});
+
+  const messageUnsubscribersRef = useRef<{ [chatId: string]: () => void }>({});
+
+  // Listen to user chats in real-time
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const unsubscribe = chatService.listenToUserChats(user.id, (updatedChats) => {
+      setChats(updatedChats);
+    });
+
+    return unsubscribe;
+  }, [user?.id]);
+
+  // Set up listeners for unread messages in each chat
+  useEffect(() => {
+    if (!user?.id || !chats.length) return;
+
+    const newUnsubscribers: { [chatId: string]: () => void } = {};
+
+    chats.forEach((chat) => {
+      const unsubscribe = chatService.listenToMessages(chat.id, (messages) => {
+        const unreadForChat = messages.filter(
+          (msg) => msg.s !== user.id && !msg.isRead
+        ).length;
+        setUnreadCounts((prev) => ({
+          ...prev,
+          [chat.id]: unreadForChat,
+        }));
+      });
+      newUnsubscribers[chat.id] = unsubscribe;
+    });
+
+    // Clean up previous unsubscribers
+    Object.values(messageUnsubscribersRef.current).forEach((unsub) => unsub());
+    messageUnsubscribersRef.current = newUnsubscribers;
+
+    return () => {
+      Object.values(newUnsubscribers).forEach((unsub) => unsub());
+    };
+  }, [chats, user?.id]);
+
+  // Update total unread count when unreadCounts change
+  useEffect(() => {
+    const total = Object.values(unreadCounts).reduce((sum, count) => sum + count, 0);
+    setUnreadCount(total);
+  }, [unreadCounts]);
 
   const navItems = [
     { to: '/dashboard', icon: Home, label: 'Home' },

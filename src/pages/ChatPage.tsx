@@ -166,22 +166,22 @@ const ChatPage = () => {
           messages.map((message) => (
             <div
               key={message.id}
-              className={`flex ${message.senderId === user?.id ? 'justify-end' : 'justify-start'}`}
+              className={`flex ${message.s === user?.id ? 'justify-end' : 'justify-start'}`}
             >
               <div
                 className={`max-w-[70%] rounded-lg px-3 py-2 ${
-                  message.senderId === user?.id
+                  message.s === user?.id
                     ? 'bg-primary text-primary-foreground'
                     : 'bg-muted'
                 }`}
               >
-                <p className="text-sm">{message.text}</p>
+                <p className="text-sm">{message.t}</p>
                 <p className={`text-xs mt-1 ${
-                  message.senderId === user?.id
+                  message.s === user?.id
                     ? 'text-primary-foreground/70'
                     : 'text-muted-foreground'
                 }`}>
-                  {format(message.timestamp, 'HH:mm')}
+                  {format(message.c, 'HH:mm')}
                 </p>
               </div>
             </div>
