@@ -23,6 +23,8 @@ import CreateRidePage from "./pages/CreateRidePage";
 import ProfilePage from "./pages/ProfilePage";
 import EditProfilePage from "./pages/EditProfilePage";
 import BecomeDriverPage from "./pages/BecomeDriverPage";
+import ChatPage from "./pages/ChatPage";
+import MessagesPage from "./pages/MessagesPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -64,6 +66,8 @@ const App = () => (
                 <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/edit-profile" element={<EditProfilePage />} />
                 <Route path="/become-driver" element={<BecomeDriverPage />} />
+                <Route path="/messages" element={<MessagesPage />} />
+                <Route path="/chat/:chatId" element={<ChatPage />} />
               </Route>
               
               {/* Redirects */}

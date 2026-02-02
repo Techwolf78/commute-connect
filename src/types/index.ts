@@ -132,3 +132,22 @@ export interface Notification {
   isRead: boolean;
   createdAt: Date;
 }
+
+// Chat Types
+export interface Chat {
+  id: string;
+  participants: string[]; // Array of user IDs
+  rideId: string;
+  lastMessage?: string;
+  lastMessageTimestamp?: Date;
+  createdAt: Date;
+}
+
+export interface Message {
+  id: string;
+  chatId: string;
+  senderId: string;
+  text: string;
+  timestamp: Date;
+  isRead: boolean;
+}

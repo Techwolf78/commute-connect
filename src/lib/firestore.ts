@@ -27,7 +27,9 @@ import {
   Booking,
   Rating,
   Location,
-  Notification
+  Notification,
+  Chat,
+  Message
 } from '../types';
 
 // Collection names
@@ -39,6 +41,8 @@ const COLLECTIONS = {
   BOOKINGS: 'bookings',
   RATINGS: 'ratings',
   NOTIFICATIONS: 'notifications',
+  CHATS: 'chats',
+  MESSAGES: 'messages',
 } as const;
 
 // Utility functions
@@ -212,6 +216,38 @@ export class FirestoreService {
     return onSnapshot(q, (querySnapshot) => {
       const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() ? convertTimestampsToDates(doc.data()) as Record<string, unknown> : {}) } as T));
       callback(data);
+    });
+  }
+
+  // Listen to collection changes with real-time updates
+  static listenToCollection<T>(
+    collectionName: string,
+    conditions: Array<{
+      field: string;
+      operator: '==' | '!=' | '<' | '<=' | '>' | '>=' | 'array-contains' | 'in' | 'not-in' | 'array-contains-any';
+      value: unknown;
+    }>,
+    orderByField?: string,
+    orderDirection: 'asc' | 'desc' = 'desc',
+    callback?: (data: T[]) => void
+  ): Unsubscribe {
+    let q: Query<DocumentData, DocumentData> = collection(db, collectionName);
+
+    // Apply where conditions
+    conditions.forEach(({ field, operator, value }) => {
+      q = query(q, where(field, operator, value));
+    });
+
+    // Apply ordering
+    if (orderByField) {
+      q = query(q, orderBy(orderByField, orderDirection));
+    }
+
+    return onSnapshot(q, (querySnapshot) => {
+      const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() ? convertTimestampsToDates(doc.data()) as Record<string, unknown> : {}) } as T));
+      if (callback) {
+        callback(data);
+      }
     });
   }
 }
@@ -690,5 +726,144 @@ export const notificationService = {
   async getUnreadNotificationCount(userId: string): Promise<number> {
     const notifications = await this.getNotificationsForUser(userId);
     return notifications.filter(n => !n.isRead).length;
+  },
+};
+
+// Chat Service
+export const chatService = {
+  // Get chat by ID
+  async getChat(chatId: string): Promise<Chat> {
+    return FirestoreService.getDocument<Chat>(COLLECTIONS.CHATS, chatId);
+  },
+
+  // Create or get existing chat between two users for a specific ride
+  async getOrCreateChat(participant1Id: string, participant2Id: string, rideId: string): Promise<Chat> {
+    // Create a consistent chat ID by sorting participant IDs
+    const participants = [participant1Id, participant2Id].sort();
+    const chatId = `${participants[0]}_${participants[1]}_${rideId}`;
+
+    // Try to get existing chat
+    const existingChat = await FirestoreService.getDocument<Chat>(COLLECTIONS.CHATS, chatId);
+    if (existingChat) {
+      return existingChat;
+    }
+
+    // Create new chat
+    const newChat: Omit<Chat, 'id'> = {
+      participants,
+      rideId,
+      createdAt: new Date(),
+    };
+
+    await FirestoreService.createDocument(COLLECTIONS.CHATS, chatId, newChat);
+    return { id: chatId, ...newChat };
+  },
+
+  // Get all chats for a user
+  async getChatsForUser(userId: string): Promise<Chat[]> {
+    return FirestoreService.queryDocuments<Chat>(
+      COLLECTIONS.CHATS,
+      [{ field: 'participants', operator: 'array-contains', value: userId }]
+    );
+  },
+
+  // Send a message
+  async sendMessage(chatId: string, senderId: string, text: string): Promise<Message> {
+    console.log('🔥 chatService: sendMessage called with:', { chatId, senderId, text });
+
+    const messageData: Omit<Message, 'id'> = {
+      chatId,
+      senderId,
+      text: text.trim(),
+      timestamp: new Date(),
+      isRead: false,
+    };
+
+    console.log('🔥 chatService: messageData:', messageData);
+
+    const messageId = await FirestoreService.createDocumentWithId(COLLECTIONS.MESSAGES, messageData);
+    console.log('🔥 chatService: messageId from createDocumentWithId:', messageId.id);
+
+    // Update chat's last message
+    await FirestoreService.updateDocument(COLLECTIONS.CHATS, chatId, {
+      lastMessage: text.trim(),
+      lastMessageTimestamp: new Date(),
+    });
+    console.log('🔥 chatService: updated chat lastMessage');
+
+    const result = messageId;
+    console.log('🔥 chatService: returning result:', result);
+    return result;
+  },
+
+  // Get messages for a chat
+  async getMessagesForChat(chatId: string): Promise<Message[]> {
+    return FirestoreService.queryDocuments<Message>(
+      COLLECTIONS.MESSAGES,
+      [{ field: 'chatId', operator: '==', value: chatId }],
+      [{ field: 'timestamp', direction: 'asc' }]
+    );
+  },
+
+  // Mark messages as read for a chat
+  async markMessagesAsRead(chatId: string, userId: string): Promise<void> {
+    // Get all unread messages in this chat that are not sent by the current user
+    const messages = await FirestoreService.queryDocuments<Message>(
+      COLLECTIONS.MESSAGES,
+      [
+        { field: 'chatId', operator: '==', value: chatId },
+        { field: 'senderId', operator: '!=', value: userId },
+        { field: 'isRead', operator: '==', value: false }
+      ]
+    );
+
+    // Mark each message as read
+    for (const message of messages) {
+      await FirestoreService.updateDocument(COLLECTIONS.MESSAGES, message.id, {
+        isRead: true
+      });
+    }
+  },
+
+  // Get unread message count for a user
+  async getUnreadMessageCount(userId: string): Promise<number> {
+    const chats = await this.getChatsForUser(userId);
+    let totalUnread = 0;
+
+    for (const chat of chats) {
+      const unreadMessages = await FirestoreService.queryDocuments<Message>(
+        COLLECTIONS.MESSAGES,
+        [
+          { field: 'chatId', operator: '==', value: chat.id },
+          { field: 'senderId', operator: '!=', value: userId },
+          { field: 'isRead', operator: '==', value: false }
+        ]
+      );
+      totalUnread += unreadMessages.length;
+    }
+
+    return totalUnread;
+  },
+
+  // Listen to messages in real-time
+  listenToMessages(chatId: string, callback: (messages: Message[]) => void): Unsubscribe {
+    return FirestoreService.subscribeToCollection(
+      COLLECTIONS.MESSAGES,
+      callback,
+      [{ field: 'chatId', operator: '==', value: chatId }],
+      'timestamp',
+      'asc'
+    );
+  },
+
+  // Listen to chats for a user in real-time
+  listenToUserChats(userId: string, callback: (chats: Chat[]) => void): Unsubscribe {
+    return FirestoreService.subscribeToCollection(
+      COLLECTIONS.CHATS,
+      callback,
+      [{ field: 'participants', operator: 'array-contains', value: userId }],
+      'lastMessageTimestamp',
+      'desc'
+    );
   },
 };

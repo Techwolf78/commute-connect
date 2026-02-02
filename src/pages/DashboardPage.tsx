@@ -1,13 +1,13 @@
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { rideService, bookingService, userService, driverService } from '@/lib/firestore';
+import { rideService, bookingService, userService, driverService, chatService } from '@/lib/firestore';
 import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
 import { cn, shouldAutoCompleteRide } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Clock, MapPin, ArrowRight, Users, Car, Calendar, Search, Plus, ChevronRight, CheckCircle2, Phone } from 'lucide-react';
+import { Clock, MapPin, ArrowRight, Users, Car, Calendar, Search, Plus, ChevronRight, CheckCircle2, Phone, MessageCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Ride, Booking, User, Driver } from '@/types';
 import { BookingCard } from '@/components/BookingCard';
@@ -73,6 +73,9 @@ const RideCard = ({ ride, onClick }: { ride: Ride; onClick: () => void }) => {
 
 // Ride Execution Components
 const TodaysRideCard = ({ ride, booking, isDriver }: { ride: Ride; booking?: Booking; isDriver: boolean }) => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
   // Fetch passenger bookings for drivers when ride is booked
   const { data: rideBookings, isLoading: bookingsLoading } = useQuery({
     queryKey: ['ride-bookings', ride.id],
@@ -90,6 +93,13 @@ const TodaysRideCard = ({ ride, booking, isDriver }: { ride: Ride; booking?: Boo
       return Promise.all(passengerPromises);
     },
     enabled: isDriver && ride.status === 'BOOKED' && !!rideBookings?.length,
+  });
+
+  // Fetch driver info for passengers
+  const { data: driverInfo } = useQuery({
+    queryKey: ['driver-info', ride.driverId],
+    queryFn: () => userService.getUser(ride.driverId),
+    enabled: !isDriver && ride.status === 'BOOKED',
   });
 
   const getStatusMessage = () => {
@@ -140,6 +150,50 @@ const TodaysRideCard = ({ ride, booking, isDriver }: { ride: Ride; booking?: Boo
 
           <p className="text-sm font-medium">{getStatusMessage()}</p>
 
+          {/* Chat with Driver for Passengers */}
+          {!isDriver && ride.status === 'BOOKED' && driverInfo && (
+            <div className="flex items-center justify-between bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                  <span className="text-xs font-medium text-primary">
+                    {driverInfo.name.charAt(0).toUpperCase()}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Driver: {driverInfo.name}</p>
+                  <p className="text-xs text-muted-foreground">{driverInfo.phone}</p>
+                </div>
+              </div>
+              <div className="flex gap-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 w-8 p-0"
+                  onClick={() => window.open(`tel:${driverInfo.phone}`, '_self')}
+                  title="Call driver"
+                >
+                  <Phone className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 w-8 p-0"
+                  onClick={async () => {
+                    try {
+                      const chat = await chatService.getOrCreateChat(user!.id, driverInfo.id, ride.id);
+                      navigate(`/chat/${chat.id}`);
+                    } catch (error) {
+                      console.error('Error creating chat:', error);
+                    }
+                  }}
+                  title="Message driver"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+
           {ride.status === 'BOOKED' && ride.estimatedArrivalTime && (
             <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
               <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
@@ -180,15 +234,33 @@ const TodaysRideCard = ({ ride, booking, isDriver }: { ride: Ride; booking?: Boo
                           <p className="text-xs text-muted-foreground">{passenger.phone}</p>
                         </div>
                       </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-8 w-8 p-0"
-                        onClick={() => window.open(`tel:${passenger.phone}`, '_self')}
-                        title="Call passenger"
-                      >
-                        <Phone className="h-4 w-4" />
-                      </Button>
+                      <div className="flex gap-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 w-8 p-0"
+                          onClick={() => window.open(`tel:${passenger.phone}`, '_self')}
+                          title="Call passenger"
+                        >
+                          <Phone className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 w-8 p-0"
+                          onClick={async () => {
+                            try {
+                              const chat = await chatService.getOrCreateChat(user!.id, passenger.id, ride.id);
+                              navigate(`/chat/${chat.id}`);
+                            } catch (error) {
+                              console.error('Error creating chat:', error);
+                            }
+                          }}
+                          title="Message passenger"
+                        >
+                          <MessageCircle className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
