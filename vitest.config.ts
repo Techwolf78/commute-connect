@@ -13,4 +13,9 @@ export default defineConfig({
   resolve: {
     alias: { "@": path.resolve(__dirname, "./src") },
   },
+  esbuild: {
+    // Enable JSX in .ts files
+    loader: "tsx",
+    include: /\.(ts|tsx)$/,
+  },
 });

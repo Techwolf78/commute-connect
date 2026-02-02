@@ -428,7 +428,23 @@ const DashboardPage = () => {
 
   const driverBookedRides = Array.isArray(driverBookedRidesData) ? driverBookedRidesData : [];
 
-  // Check for today's ride execution (for both drivers and passengers)
+  // Fetch driver's completed rides (for showing when no active rides)
+  const { data: driverCompletedRidesData, isLoading: driverCompletedLoading } = useQuery({
+    queryKey: ['driver-completed-rides', user?.id],
+    queryFn: async () => {
+      if (!user || !isDriver) return [];
+      const rides = Array.isArray(await rideService.getRidesByDriver(user.id)) 
+        ? await rideService.getRidesByDriver(user.id) 
+        : [];
+      return rides.filter(ride =>
+        ride.status === 'COMPLETED'
+      ).sort((a, b) => new Date(getDateFromTimestamp(b.departureTime)).getTime() - new Date(getDateFromTimestamp(a.departureTime)).getTime())
+      .slice(0, 3);
+    },
+    enabled: !!user && isDriver,
+  });
+
+  const driverCompletedRides = Array.isArray(driverCompletedRidesData) ? driverCompletedRidesData : [];
   const { data: todaysRideData, isLoading: todaysRideLoading } = useQuery<TodaysRideData>({
     queryKey: ['todays-ride', user?.id],
     queryFn: async () => {
@@ -803,6 +819,58 @@ const DashboardPage = () => {
                       <div className="flex flex-col items-end text-right ml-2">
                         <span className="text-xs md:text-sm font-medium text-blue-600">
                           {ride.totalSeats - ride.availableSeats}/{ride.totalSeats} booked
+                        </span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Driver Completed Rides (shown when no active rides) */}
+        {isDriver && (driverAvailableRides?.length || 0) === 0 && (driverBookedRides?.length || 0) === 0 && (driverCompletedRides?.length || 0) > 0 && (
+          <section>
+            <div className="flex items-center justify-between mb-2 md:mb-3">
+              <h2 className="text-base md:text-lg font-semibold">Your Completed Rides</h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-primary"
+                onClick={() => navigate('/my-rides')}
+              >
+                View All
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+            <div className="space-y-3">
+              {driverCompletedRides.slice(0, 2).map(ride => (
+                <Card
+                  key={ride.id}
+                  className="cursor-pointer hover:shadow-md transition-shadow"
+                  onClick={() => navigate(`/ride/${ride.id}`)}
+                >
+                  <CardContent className="p-3 md:p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1 md:space-y-2 flex-1 min-w-0">
+                        <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground">
+                          <Clock className="h-3 w-3 md:h-4 md:w-4 flex-shrink-0" />
+                          {format(getDateFromTimestamp(ride.departureTime), 'EEE, MMM d • h:mm a')}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <MapPin className="h-3 w-3 md:h-4 md:w-4 text-primary flex-shrink-0" />
+                          <span className="font-medium text-sm md:text-base truncate">{ride.startLocation.name}</span>
+                          <ArrowRight className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground flex-shrink-0" />
+                          <span className="font-medium text-sm md:text-base truncate">{ride.endLocation.name}</span>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end text-right ml-2">
+                        <span className="text-xs md:text-sm font-medium text-green-600">
+                          Completed
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {ride.totalSeats - ride.availableSeats} passengers
                         </span>
                       </div>
                     </div>

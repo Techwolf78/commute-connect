@@ -23,15 +23,13 @@ const FindRidesPage = () => {
   const [toLocation, setToLocation] = useState<Location | null>(null);
   const [direction, setDirection] = useState<'all' | 'to_office' | 'from_office'>('all');
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  const [maxPrice, setMaxPrice] = useState('');
-  const [minSeats, setMinSeats] = useState('1');
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const clearFilters = () => {
     setFromLocation(null);
     setToLocation(null);
     setDirection('all');
     setSelectedDate(undefined);
-    setMaxPrice('');
-    setMinSeats('1');
+    setIsCalendarOpen(false);
   };
 
   // Fetch available rides with filters
@@ -99,16 +97,6 @@ const FindRidesPage = () => {
         return false;
       }
     }
-    // Filter by max price
-    if (maxPrice && ride.costPerSeat > parseInt(maxPrice)) {
-      console.log('❌ FindRidesPage: Filtered out by maxPrice');
-      return false;
-    }
-    // Filter by min seats
-    if (minSeats && ride.availableSeats < parseInt(minSeats)) {
-      console.log('❌ FindRidesPage: Filtered out by minSeats');
-      return false;
-    }
     
     console.log('✅ FindRidesPage: Ride passed all filters');
     return true;
@@ -140,10 +128,10 @@ const FindRidesPage = () => {
                 </span>
               </div>
               <div className="flex gap-2">
-                <span className={`text-xs px-2 py-1 rounded-full ${
+                <span className={`text-xs px-2 py-1 rounded-full font-medium ${
                   ride.direction === 'to_office'
-                    ? 'bg-primary/10 text-primary'
-                    : 'bg-accent/10 text-accent-foreground'
+                    ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                    : 'bg-green-100 text-green-800 border border-green-200'
                 }`}>
                   {ride.direction === 'to_office' ? 'To Office' : 'From Office'}
                 </span>
@@ -232,7 +220,7 @@ const FindRidesPage = () => {
                 <SelectItem value="from_office">From Office</SelectItem>
               </SelectContent>
             </Select>
-            <Popover>
+            <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
@@ -249,37 +237,16 @@ const FindRidesPage = () => {
                 <Calendar
                   mode="single"
                   selected={selectedDate}
-                  onSelect={setSelectedDate}
+                  onSelect={(date) => {
+                    setSelectedDate(date);
+                    setIsCalendarOpen(false);
+                  }}
                   disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
                   initialFocus
                   className="pointer-events-auto"
                 />
               </PopoverContent>
             </Popover>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">₹</span>
-                <Input
-                  type="number"
-                  placeholder="Max price"
-                  value={maxPrice}
-                  onChange={(e) => setMaxPrice(e.target.value)}
-                  className="pl-6"
-                  min="0"
-                />
-              </div>
-              <div className="relative">
-                <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="number"
-                  placeholder="Min seats"
-                  value={minSeats}
-                  onChange={(e) => setMinSeats(e.target.value)}
-                  className="pl-9"
-                  min="1"
-                />
-              </div>
-            </div>
             <Button
               variant="outline"
               size="sm"

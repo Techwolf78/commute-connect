@@ -16,11 +16,10 @@ export const getDateFromTimestamp = (timestamp: Date | string | { toDate: () => 
   return timestamp as Date;
 };
 
-// Check if a ride should be expired (departure time + 1 hour < current time)
+// Check if a ride should be expired (departure time < current time)
 export const isRideExpired = (departureTime: Date | string | { toDate: () => Date }): boolean => {
   const departureDate = getDateFromTimestamp(departureTime);
-  const expiryTime = new Date(departureDate.getTime() + 60 * 60 * 1000); // Add 1 hour
-  return new Date() > expiryTime;
+  return new Date() > departureDate;
 };
 
 // Get ride status with expiration check
@@ -32,7 +31,7 @@ export const getRideStatusWithExpiry = (ride: { status: string; departureTime: D
 };
 
 // Calculate distance between two coordinates using Haversine formula
-const calculateDistance = (origin: { lat: number; lng: number }, destination: { lat: number; lng: number }): number => {
+export const calculateDistance = (origin: { lat: number; lng: number }, destination: { lat: number; lng: number }): number => {
   const R = 6371; // Earth's radius in kilometers
   const dLat = (destination.lat - origin.lat) * Math.PI / 180;
   const dLng = (destination.lng - origin.lng) * Math.PI / 180;
