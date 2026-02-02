@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, MessageCircle, User } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
-import { chatService, userService } from '@/lib/firestore';
+import { chatService, userService, rideService } from '@/lib/firestore';
 import { Chat } from '@/types';
 import { format } from 'date-fns';
 
@@ -58,6 +58,30 @@ const MessagesPage = () => {
     enabled: !!chats?.length && !!user?.id,
   });
 
+  // Fetch ride details for each chat
+  const { data: chatRides } = useQuery({
+    queryKey: ['chat-rides', chats?.map(c => c.rideId)],
+    queryFn: async () => {
+      if (!chats?.length) return {};
+
+      const rides: { [rideId: string]: any } = {};
+
+      for (const chat of chats) {
+        if (chat.rideId) {
+          try {
+            const ride = await rideService.getRide(chat.rideId);
+            rides[chat.rideId] = ride;
+          } catch (error) {
+            console.error('Error fetching ride:', error);
+          }
+        }
+      }
+
+      return rides;
+    },
+    enabled: !!chats?.length,
+  });
+
   const handleChatClick = (chatId: string) => {
     navigate(`/chat/${chatId}`);
   };
@@ -88,6 +112,7 @@ const MessagesPage = () => {
           <div className="divide-y divide-border">
             {chats.map((chat) => {
               const participant = chatParticipants?.[chat.id];
+              const ride = chatRides?.[chat.rideId];
               const otherParticipantId = chat.participants.find(id => id !== user?.id);
 
               // Get unread count for this chat
@@ -125,6 +150,13 @@ const MessagesPage = () => {
                       {chat.lastMessage && (
                         <p className="text-sm text-muted-foreground truncate mt-1">
                           {chat.lastMessage}
+                        </p>
+                      )}
+
+                      {/* Ride information - minimal with time for uniqueness */}
+                      {ride && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Ride: {format(ride.departureTime, 'MMM d, h:mm a')}
                         </p>
                       )}
 
