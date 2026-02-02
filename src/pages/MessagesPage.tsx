@@ -155,15 +155,15 @@ const MessagesPage = () => {
                 <div
                   key={chat.id}
                   className={cn(
-                    "p-4 hover:bg-muted/50 cursor-pointer transition-colors relative",
+                    "p-3 hover:bg-muted/50 cursor-pointer transition-colors relative",
                     unreadForThisChat > 0 && "bg-red-50 border-l-4 border-red-500"
                   )}
                   onClick={() => handleChatClick(chat.id)}
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
                     <div className="relative">
                       <div className={cn(
-                        "w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0",
+                        "w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0",
                         unreadForThisChat > 0 ? "bg-red-500" : "bg-primary/10"
                       )}>
                         {participant ? (
@@ -175,7 +175,7 @@ const MessagesPage = () => {
                           </span>
                         ) : (
                           <User className={cn(
-                            "h-6 w-6",
+                            "h-5 w-5",
                             unreadForThisChat > 0 ? "text-white" : "text-primary"
                           )} />
                         )}
@@ -195,7 +195,7 @@ const MessagesPage = () => {
                           "font-medium truncate",
                           unreadForThisChat > 0 ? "text-red-700" : "text-foreground"
                         )}>
-                          {participant?.name || 'Unknown User'}
+                          {participant?.name || 'Unknown User'}{participant?.phone ? ` | ${participant.phone}` : ''}
                         </h3>
                         {chat.lastMessageTimestamp && (
                           <span className="text-xs text-muted-foreground">
@@ -220,11 +220,6 @@ const MessagesPage = () => {
                         </p>
                       )}
 
-                      {participant?.phone && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {participant.phone}
-                        </p>
-                      )}
                     </div>
                   </div>
                 </div>
