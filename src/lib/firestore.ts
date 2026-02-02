@@ -761,10 +761,29 @@ export const chatService = {
 
   // Get all chats for a user
   async getChatsForUser(userId: string): Promise<Chat[]> {
-    return FirestoreService.queryDocuments<Chat>(
-      COLLECTIONS.CHATS,
-      [{ field: 'participants', operator: 'array-contains', value: userId }]
-    );
+    try {
+      const result = await FirestoreService.queryDocuments<Chat>(
+        COLLECTIONS.CHATS,
+        [{ field: 'participants', operator: 'array-contains', value: userId }]
+      );
+
+      // If no chats found, return empty array
+      if (!result || result.length === 0) {
+        return [];
+      }
+
+      // Sort by lastMessageTimestamp if available, otherwise by createdAt
+      const sortedResult = result.sort((a, b) => {
+        const aTime = a.lastMessageTimestamp || a.createdAt;
+        const bTime = b.lastMessageTimestamp || b.createdAt;
+        return bTime.getTime() - aTime.getTime();
+      });
+
+      return sortedResult;
+    } catch (error) {
+      console.error('Error fetching chats for user:', error);
+      return [];
+    }
   },
 
   // Send a message
@@ -847,18 +866,22 @@ export const chatService = {
 
   // Get unread message counts per chat for a user
   async getUnreadCountsPerChat(userId: string): Promise<{ [chatId: string]: number }> {
-    const unreadMessages = await FirestoreService.queryDocuments<Message>(
-      COLLECTIONS.MESSAGES,
-      [
-        { field: 'senderId', operator: '!=', value: userId },
-        { field: 'isRead', operator: '==', value: false }
-      ]
-    );
-
+    const chats = await this.getChatsForUser(userId);
     const counts: { [chatId: string]: number } = {};
-    unreadMessages.forEach(message => {
-      counts[message.chatId] = (counts[message.chatId] || 0) + 1;
-    });
+
+    for (const chat of chats) {
+      const unreadMessages = await FirestoreService.queryDocuments<Message>(
+        COLLECTIONS.MESSAGES,
+        [
+          { field: 'chatId', operator: '==', value: chat.id },
+          { field: 'senderId', operator: '!=', value: userId },
+          { field: 'isRead', operator: '==', value: false }
+        ]
+      );
+      if (unreadMessages.length > 0) {
+        counts[chat.id] = unreadMessages.length;
+      }
+    }
 
     return counts;
   },

@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { chatService, userService, rideService } from '@/lib/firestore';
 import { Chat } from '@/types';
 import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 const MessagesPage = () => {
   const navigate = useNavigate();
@@ -121,23 +122,47 @@ const MessagesPage = () => {
               return (
                 <div
                   key={chat.id}
-                  className="p-4 hover:bg-muted/50 cursor-pointer transition-colors relative"
+                  className={cn(
+                    "p-4 hover:bg-muted/50 cursor-pointer transition-colors relative",
+                    unreadForThisChat > 0 && "bg-red-50 border-l-4 border-red-500"
+                  )}
                   onClick={() => handleChatClick(chat.id)}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      {participant ? (
-                        <span className="text-sm font-medium text-primary">
-                          {participant.name.charAt(0).toUpperCase()}
-                        </span>
-                      ) : (
-                        <User className="h-6 w-6 text-primary" />
+                    <div className="relative">
+                      <div className={cn(
+                        "w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0",
+                        unreadForThisChat > 0 ? "bg-red-500" : "bg-primary/10"
+                      )}>
+                        {participant ? (
+                          <span className={cn(
+                            "text-sm font-medium",
+                            unreadForThisChat > 0 ? "text-white" : "text-primary"
+                          )}>
+                            {participant.name.charAt(0).toUpperCase()}
+                          </span>
+                        ) : (
+                          <User className={cn(
+                            "h-6 w-6",
+                            unreadForThisChat > 0 ? "text-white" : "text-primary"
+                          )} />
+                        )}
+                      </div>
+                      {unreadForThisChat > 0 && (
+                        <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 border-2 border-white flex items-center justify-center">
+                          <span className="text-xs font-bold text-white">
+                            {unreadForThisChat > 9 ? '9+' : unreadForThisChat}
+                          </span>
+                        </div>
                       )}
                     </div>
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
-                        <h3 className="font-medium text-foreground truncate">
+                        <h3 className={cn(
+                          "font-medium truncate",
+                          unreadForThisChat > 0 ? "text-red-700" : "text-foreground"
+                        )}>
                           {participant?.name || 'Unknown User'}
                         </h3>
                         {chat.lastMessageTimestamp && (
@@ -148,7 +173,10 @@ const MessagesPage = () => {
                       </div>
 
                       {chat.lastMessage && (
-                        <p className="text-sm text-muted-foreground truncate mt-1">
+                        <p className={cn(
+                          "text-sm truncate mt-1",
+                          unreadForThisChat > 0 ? "text-red-600 font-medium" : "text-muted-foreground"
+                        )}>
                           {chat.lastMessage}
                         </p>
                       )}
@@ -166,14 +194,6 @@ const MessagesPage = () => {
                         </p>
                       )}
                     </div>
-
-                    {unreadForThisChat > 0 && (
-                      <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-                        <span className="text-xs font-medium text-primary-foreground">
-                          {unreadForThisChat}
-                        </span>
-                      </div>
-                    )}
                   </div>
                 </div>
               );
