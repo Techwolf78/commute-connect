@@ -38,5 +38,23 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/bookings/$(resource.data.bookingId)) &&
         get(/databases/$(database)/documents/bookings/$(resource.data.bookingId)).data.passengerId == request.auth.uid;
     }
+
+    // Chats: participants can read/write
+    match /chats/{chatId} {
+      allow read, write: if request.auth != null &&
+        request.auth.uid in resource.data.participants;
+    }
+
+    // Messages: participants of the chat can read/write
+    match /messages/{messageId} {
+      allow read, write: if request.auth != null &&
+        exists(/databases/$(database)/documents/chats/$(resource.data.chatId)) &&
+        request.auth.uid in get(/databases/$(database)/documents/chats/$(resource.data.chatId)).data.participants;
+    }
+
+    // Notifications: users can read/write their own
+    match /notifications/{notificationId} {
+      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
   }
 }

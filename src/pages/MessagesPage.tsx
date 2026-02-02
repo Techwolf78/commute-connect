@@ -5,7 +5,7 @@ import { ArrowLeft, MessageCircle, User } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 import { chatService, userService, rideService } from '@/lib/firestore';
-import { Chat } from '@/types';
+import { Chat, User as UserType, Ride } from '@/types';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -40,7 +40,7 @@ const MessagesPage = () => {
     queryFn: async () => {
       if (!chats?.length || !user?.id) return {};
 
-      const participants: { [chatId: string]: any } = {};
+      const participants: { [chatId: string]: UserType } = {};
 
       for (const chat of chats) {
         const otherParticipantId = chat.participants.find(id => id !== user.id);
@@ -65,7 +65,7 @@ const MessagesPage = () => {
     queryFn: async () => {
       if (!chats?.length) return {};
 
-      const rides: { [rideId: string]: any } = {};
+      const rides: { [rideId: string]: Ride } = {};
 
       for (const chat of chats) {
         if (chat.rideId) {
