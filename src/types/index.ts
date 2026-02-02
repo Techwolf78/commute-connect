@@ -3,7 +3,7 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  phone?: string;
+  phone: string;
   profilePhoto?: string;
   role: 'passenger' | 'driver';
   homeLocation?: Location;

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, User, MapPin, Building2, Camera } from 'lucide-react';
+import { ArrowLeft, User, MapPin, Building2, Camera, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -16,6 +16,7 @@ const EditProfilePage = () => {
   
   const [name, setName] = useState(user?.name || '');
   const [email, setEmail] = useState(user?.email || '');
+  const [phone, setPhone] = useState(user?.phone || '');
   const [homeLocation, setHomeLocation] = useState<Location | null>(user?.homeLocation || null);
   const [officeLocation, setOfficeLocation] = useState<Location | null>(user?.officeLocation || null);
   const [isLoading, setIsLoading] = useState(false);
@@ -28,6 +29,15 @@ const EditProfilePage = () => {
         variant: 'destructive',
         title: 'Name Required',
         description: 'Please enter your full name.',
+      });
+      return;
+    }
+
+    if (!phone.trim()) {
+      toast({
+        variant: 'destructive',
+        title: 'Phone Number Required',
+        description: 'Please enter your phone number.',
       });
       return;
     }
@@ -65,6 +75,7 @@ const EditProfilePage = () => {
       updateUser({
         name: name.trim(),
         email: email.trim() || undefined,
+        phone: phone.trim(),
         homeLocation,
         officeLocation,
       });
@@ -158,17 +169,23 @@ const EditProfilePage = () => {
                 />
               </div>
 
-              {/* Phone (read-only) */}
+              {/* Phone */}
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">
-                  Phone Number
+                <label htmlFor="phone" className="text-sm font-medium text-foreground">
+                  Phone Number <span className="text-destructive">*</span>
                 </label>
-                <Input
-                  value={user?.phone || ''}
-                  className="h-12 bg-muted"
-                  disabled
-                />
-                <p className="text-xs text-muted-foreground">Phone number cannot be changed</p>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <Input
+                    id="phone"
+                    type="tel"
+                    placeholder="Enter your phone number"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="pl-10 h-12"
+                    disabled={isLoading}
+                  />
+                </div>
               </div>
 
               {/* Home Location */}
@@ -211,7 +228,7 @@ const EditProfilePage = () => {
                 <Button
                   type="submit"
                   className="flex-1 h-12"
-                  disabled={isLoading}
+                  disabled={isLoading || !name.trim() || !phone.trim() || !homeLocation || !officeLocation}
                 >
                   {isLoading ? (
                     <span className="flex items-center gap-2">

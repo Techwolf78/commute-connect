@@ -7,7 +7,7 @@ import { format } from 'date-fns';
 import { cn, shouldAutoCompleteRide } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Clock, MapPin, ArrowRight, Users, Car, Calendar, Search, Plus, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { Clock, MapPin, ArrowRight, Users, Car, Calendar, Search, Plus, ChevronRight, CheckCircle2, Phone } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Ride, Booking, User, Driver } from '@/types';
 import { BookingCard } from '@/components/BookingCard';
@@ -73,6 +73,25 @@ const RideCard = ({ ride, onClick }: { ride: Ride; onClick: () => void }) => {
 
 // Ride Execution Components
 const TodaysRideCard = ({ ride, booking, isDriver }: { ride: Ride; booking?: Booking; isDriver: boolean }) => {
+  // Fetch passenger bookings for drivers when ride is booked
+  const { data: rideBookings, isLoading: bookingsLoading } = useQuery({
+    queryKey: ['ride-bookings', ride.id],
+    queryFn: () => bookingService.getBookingsByRide(ride.id),
+    enabled: isDriver && ride.status === 'BOOKED',
+  });
+
+  // Fetch passenger details
+  const { data: passengers, isLoading: passengersLoading } = useQuery({
+    queryKey: ['ride-passengers', ride.id, rideBookings?.map(b => b.passengerId)],
+    queryFn: async () => {
+      if (!rideBookings?.length) return [];
+      const passengerIds = rideBookings.map(b => b.passengerId);
+      const passengerPromises = passengerIds.map(id => userService.getUser(id));
+      return Promise.all(passengerPromises);
+    },
+    enabled: isDriver && ride.status === 'BOOKED' && !!rideBookings?.length,
+  });
+
   const getStatusMessage = () => {
     switch (ride.status) {
       case 'AVAILABLE':
@@ -134,6 +153,48 @@ const TodaysRideCard = ({ ride, booking, isDriver }: { ride: Ride; booking?: Boo
               <p className="text-sm font-medium text-green-800 dark:text-green-200">
                 ✅ Ride completed successfully!
               </p>
+            </div>
+          )}
+
+          {/* Passenger List for Drivers */}
+          {isDriver && ride.status === 'BOOKED' && (
+            <div className="border-t pt-3">
+              <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                Passengers ({passengers?.length || 0})
+              </h4>
+              {bookingsLoading || passengersLoading ? (
+                <div className="text-sm text-muted-foreground">Loading passengers...</div>
+              ) : passengers && passengers.length > 0 ? (
+                <div className="space-y-2">
+                  {passengers.map((passenger, index) => (
+                    <div key={passenger.id} className="flex items-center justify-between bg-white dark:bg-gray-800 p-2 rounded-lg border">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                          <span className="text-xs font-medium text-primary">
+                            {passenger.name.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">{passenger.name}</p>
+                          <p className="text-xs text-muted-foreground">{passenger.phone}</p>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 w-8 p-0"
+                        onClick={() => window.open(`tel:${passenger.phone}`, '_self')}
+                        title="Call passenger"
+                      >
+                        <Phone className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-sm text-muted-foreground">No passengers yet</div>
+              )}
             </div>
           )}
         </div>

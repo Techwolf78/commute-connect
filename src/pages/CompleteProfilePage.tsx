@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, MapPin, Building2, ArrowRight, Camera } from 'lucide-react';
+import { User, MapPin, Building2, ArrowRight, Camera, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,6 +16,7 @@ const CompleteProfilePage = () => {
   
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [homeLocation, setHomeLocation] = useState<Location | null>(null);
   const [officeLocation, setOfficeLocation] = useState<Location | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -25,6 +26,7 @@ const CompleteProfilePage = () => {
     if (user) {
       setName(user.name || '');
       setEmail(user.email || '');
+      setPhone(user.phone || '');
       setHomeLocation(user.homeLocation || null);
       setOfficeLocation(user.officeLocation || null);
     }
@@ -42,6 +44,15 @@ const CompleteProfilePage = () => {
         variant: 'destructive',
         title: 'Name Required',
         description: 'Please enter your full name.',
+      });
+      return;
+    }
+
+    if (!phone.trim()) {
+      toast({
+        variant: 'destructive',
+        title: 'Phone Number Required',
+        description: 'Please enter your phone number.',
       });
       return;
     }
@@ -87,6 +98,7 @@ const CompleteProfilePage = () => {
       updateUser({
         name: name.trim(),
         email: email.trim() || undefined,
+        phone: phone.trim(),
         homeLocation,
         officeLocation,
         isProfileComplete: true,
@@ -183,6 +195,25 @@ const CompleteProfilePage = () => {
                 />
               </div>
 
+              {/* Phone Input */}
+              <div className="space-y-2">
+                <label htmlFor="phone" className="text-sm font-medium text-foreground">
+                  Phone Number <span className="text-destructive">*</span>
+                </label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <Input
+                    id="phone"
+                    type="tel"
+                    placeholder="Enter your phone number"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="pl-10 h-12"
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+
               {/* Home Location */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">
@@ -213,7 +244,7 @@ const CompleteProfilePage = () => {
               <Button
                 type="submit"
                 className="w-full h-12 text-base font-medium"
-                disabled={isLoading || !name.trim() || !homeLocation || !officeLocation}
+                disabled={isLoading || !name.trim() || !phone.trim() || !homeLocation || !officeLocation}
               >
                 {isLoading ? (
                   <span className="flex items-center gap-2">
